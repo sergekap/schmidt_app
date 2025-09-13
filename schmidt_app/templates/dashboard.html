@@ -1,0 +1,342 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schmidt - Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <link rel="stylesheet" href="{% static 'css/dashboard_style.css' %}">
+</head>
+
+<body>
+  <!-- Header -->
+  <div class="header">
+    <button class="hamburger-menu" id="hamburgerMenu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="logo-container">
+      <img src="{% static 'images/logo.png' %}" alt="Schmidt Logo" class="logo">
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="sidebar" id="sidebar">
+    <a href="#" id="imageLibraryBtn" class="sidebar-item active">Bibliothèque d'images</a>
+    <a href="#" id="performanceBtn" class="sidebar-item">Performances</a>
+
+    {# La gestion des utilisateurs n’apparaît que pour les admins #}
+    {% if request.user.role == 'ADMIN' %}
+      <a href="#" id="userManagementBtn" class="sidebar-item">Gestion des utilisateurs</a>
+    {% endif %}
+
+    <a href="#" class="sidebar-item logout-button-sidebar" onclick="logout()">Déconnexion</a>
+  </div>
+
+  <!-- Contenu principal -->
+  <div class="main-content">
+    <!-- Bibliothèque d'images -->
+    <div id="imageLibraryContainer" class="image-library-container">
+      <nav class="navigation">
+        <button class="nav-button active" data-section="facades">Façades</button>
+        <button class="nav-button" data-section="plans">Plans de travail</button>
+        <button class="nav-button" data-section="espaces">Espaces de la maison</button>
+        <button class="nav-button" data-section="ambiances">Ambiances</button>
+      </nav>
+      <div id="dashboardContent" class="dashboard-grid"></div>
+
+    </div>
+
+    {# Gestion des utilisateurs : visible uniquement pour ADMIN #}
+    {% if request.user.role == 'ADMIN' %}
+    <div id="userManagementContainer" class="main-section-container" style="display:none;">
+      <h2 class="section-title">Gestion des utilisateurs</h2>
+
+      <div class="user-list-section">
+        <h3 class="section-subtitle">Utilisateurs existants</h3>
+        <div class="table-responsive">
+          <table id="userTable" class="user-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Prénom</th>
+                <th>Adresse Mail</th>
+                <th>Rôle</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="add-user-section">
+        <h3 class="section-subtitle">Ajouter un nouvel utilisateur</h3>
+        <form id="addUserForm" class="add-user-form">
+          <input type="text" id="newUserName" placeholder="Nom" required>
+          <input type="text" id="newUserFirstName" placeholder="Prénom" required>
+          <input type="email" id="newUserEmail" placeholder="Adresse Mail" required>
+          <select id="newUserRole">
+            <option value="MANAGER" selected>Gestionnaire</option>
+            <option value="ADMIN">Administrateur</option>
+          </select>
+          <button type="submit" class="save-btn">Ajouter l'utilisateur</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Performances -->
+<div id="performanceContainer" class="main-section-container" style="display:none;">
+  <h2 class="section-title">Statistiques de Performance</h2>
+
+  <!-- Résumé chiffres -->
+  <div class="performance-summary">
+    <div class="stat-card">
+      <h3>Sessions d'utilisation</h3>
+      <p id="totalSessions">0</p>
+    </div>
+    <div class="stat-card">
+      <h3>Durée totale d'utilisation</h3>
+      <p id="totalUsageDuration">0h 0m</p>
+    </div>
+    <div class="stat-card">
+      <h3>Durée moyenne par session</h3>
+      <p id="avgUsageDuration">0m 0s</p>
+    </div>
+  </div>
+
+  <!-- Détail : Clics par catégorie (accordéon) -->
+  <div class="performance-detail-section">
+    <h3 class="section-subtitle">Clics par Catégorie</h3>
+
+    <div class="clicks-accordion">
+
+      <!-- FAÇADES -->
+      <section class="acc-card" data-section="facades">
+        <h4 class="acc-title">FAÇADES</h4>
+
+        <button class="acc-summary" type="button" aria-expanded="false">
+          <span class="acc-line">
+            <b id="facadesCount">0</b> éléments • <b id="facadesClicks">0</b> clics au total
+          </span>
+          <span class="acc-caret" aria-hidden="true"></span>
+        </button>
+
+        <div class="acc-content" role="region" aria-label="Détail des clics - Façades">
+          <div id="facadeClicksContainer" class="compact-list-container"></div>
+        </div>
+      </section>
+
+      <!-- PLANS DE TRAVAIL -->
+      <section class="acc-card" data-section="plans">
+        <h4 class="acc-title">PLANS DE TRAVAIL</h4>
+
+        <button class="acc-summary" type="button" aria-expanded="false">
+          <span class="acc-line">
+            <b id="plansCount">0</b> éléments • <b id="plansClicks">0</b> clics au total
+          </span>
+          <span class="acc-caret" aria-hidden="true"></span>
+        </button>
+
+        <div class="acc-content" role="region" aria-label="Détail des clics - Plans de travail">
+          <div id="planClicksContainer" class="compact-list-container"></div>
+        </div>
+      </section>
+
+      <!-- ESPACES DE LA MAISON -->
+      <section class="acc-card" data-section="espaces">
+        <h4 class="acc-title">ESPACES DE LA MAISON</h4>
+
+        <button class="acc-summary" type="button" aria-expanded="false">
+          <span class="acc-line">
+            <b id="espacesCount">0</b> éléments • <b id="espacesClicks">0</b> clics au total
+          </span>
+          <span class="acc-caret" aria-hidden="true"></span>
+        </button>
+
+        <div class="acc-content" role="region" aria-label="Détail des clics - Espaces de la maison">
+          <div id="roomClicksContainer" class="compact-list-container"></div>
+        </div>
+      </section>
+
+      <!-- AMBIANCES -->
+      <section class="acc-card" data-section="ambiances">
+        <h4 class="acc-title">AMBIANCES</h4>
+
+        <button class="acc-summary" type="button" aria-expanded="false">
+          <span class="acc-line">
+            <b id="ambiancesCount">0</b> éléments • <b id="ambiancesClicks">0</b> clics au total
+          </span>
+          <span class="acc-caret" aria-hidden="true"></span>
+        </button>
+
+        <div class="acc-content" role="region" aria-label="Détail des clics - Ambiances">
+          <div id="ambianceClicksContainer" class="compact-list-container"></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+
+  </div>
+
+
+<!-- Modals couleurs -->
+<div id="addColorModal" class="color-edit-modal">
+  <div class="color-edit-overlay"></div>
+
+  <div class="color-edit-container" role="dialog" aria-modal="true" aria-labelledby="addColorTitle">
+    <button class="color-edit-close" type="button" aria-label="Fermer">&times;</button>
+
+    <div class="color-edit-header">
+      <h2 id="addColorTitle" class="color-edit-title">Ajouter un nouveau coloris</h2>
+    </div>
+
+    <div class="color-edit-content">
+      <form id="addColorForm" class="add-color-form" autocomplete="off">
+        <!-- Nom -->
+        <label for="newColorName">Nom du coloris</label>
+        <input type="text" id="newColorName" class="color-name-input" placeholder="Entrez le nom du coloris" required>
+
+        <!-- Présentation -->
+        <div class="presentation-section">
+          <h3 class="section-subtitle">Photo de présentation</h3>
+          <input type="file" id="newColorPresentation" accept="image/*" hidden>
+          <div id="newColorPresentationDrop" class="upload-area" tabindex="0">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="14" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <path d="M21 17l-5.5-5.5a3 3 0 0 0-4.2 0L3 20"></path>
+              </svg>
+            </div>
+            <div class="upload-text">Cliquez pour ajouter une photo de présentation</div>
+          </div>
+          <div id="newColorPresentationPreview" class="presentation-preview"></div>
+        </div>
+
+        <!-- Galerie -->
+        <div class="gallery-section">
+          <h3 class="section-subtitle">Photos de galerie</h3>
+          <input type="file" id="newColorGallery" accept="image/*" multiple hidden>
+          <div id="newColorGalleryDrop" class="upload-area" tabindex="0">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="14" rx="2" ry="2"></rect>
+                <path d="M21 17l-5.5-5.5a3 3 0 0 0-4.2 0L3 20"></path>
+                <path d="M14 8h7M17.5 4.5v7"></path>
+              </svg>
+            </div>
+            <div class="upload-text">Cliquez pour ajouter des photos à la galerie</div>
+          </div>
+          <div id="newColorGalleryPreview" class="gallery-preview-container"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="add-color-actions">
+          <button type="button" class="cancel-btn" id="cancelAddColorBtn">Annuler</button>
+          <button type="submit" class="save-btn">Ajouter le coloris</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+</div>
+
+  <div id="colorEditModal" class="color-edit-modal">
+  <div class="color-edit-overlay"></div>
+
+  <div class="color-edit-container" role="dialog" aria-modal="true" aria-labelledby="colorEditTitle">
+    <button class="color-edit-close" type="button" aria-label="Fermer">&times;</button>
+
+    <div class="color-edit-header">
+      <h2 id="colorEditTitle" class="color-edit-title">Nom de la couleur</h2>
+      <div class="color-edit-actions"></div>
+    </div>
+
+    <div class="color-edit-content">
+      <!-- Présentation -->
+      <div class="presentation-section">
+        <h3 class="section-subtitle">Photo de présentation</h3>
+        <input type="file" id="presentationFile" accept="image/*" hidden>
+        <button id="presentationUploadBtn" class="upload-btn">Ajouter / Remplacer la présentation</button>
+        <div class="presentation-image-container">
+          <img id="presentationImage" src="" alt="Photo de présentation" class="presentation-image">
+          <div id="presentationAddTile" class="presentation-add-tile" title="Ajouter une image de présentation">+</div>
+        </div>
+      </div>
+
+      <!-- Galerie -->
+      <div class="gallery-section">
+        <h3 class="section-subtitle">Galerie</h3>
+        <input type="file" id="galleryFiles" accept="image/*" multiple hidden>
+        <div id="galleryContainer" class="gallery-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Bandeau de sauvegarde -->
+<div id="saveBanner" class="save-banner">
+  <div class="save-banner-content">
+    <div id="saveBannerMsg" class="save-banner-message">Des modifications ont été apportées à l'organisation des éléments</div>
+    <div class="save-banner-actions">
+      <button id="saveBannerSave" class="save-banner-btn save">Enregistrer les modifications</button>
+      <button id="saveBannerCancel" class="save-banner-btn cancel">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Formulaire caché pour POST vers /logout/ -->
+<form id="logoutForm" method="post" action="{% url 'logout' %}" style="display:none;">
+  {% csrf_token %}
+</form>
+
+<!-- Modal déconnexion -->
+<div id="logoutModal" class="logout-modal">
+  <div class="logout-modal-overlay"></div>
+  <div class="logout-modal-content">
+    <h3 class="logout-modal-title">Êtes-vous sûr de vouloir vous déconnecter ?</h3>
+    <div class="logout-modal-actions">
+      <button type="submit" form="logoutForm" class="logout-btn-confirm">Déconnexion</button>
+      <button id="cancelLogout" class="logout-btn-cancel" onclick="document.getElementById('logoutModal').classList.remove('show');">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Petites règles supplémentaires pour l’affichage souhaité -->
+<style>
+  /* cache la dropzone de présentation quand un visuel est présent */
+  #addColorModal .presentation-section.has-presentation #newColorPresentationDrop { display:none; }
+  #addColorModal .presentation-section.has-presentation #newColorPresentationPreview { display:block; }
+
+  /* vignettes galerie côte à côte */
+  #addColorModal #newColorGalleryPreview.gallery-preview-container{
+    display:flex; flex-wrap:wrap; gap:12px; margin-top:12px;
+  }
+  #addColorModal #newColorGalleryPreview .thumb{
+    position:relative; width:86px; height:86px; border-radius:10px; overflow:hidden;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
+  }
+  #addColorModal #newColorGalleryPreview .thumb img{ width:100%; height:100%; object-fit:cover; }
+  #addColorModal #newColorGalleryPreview .thumb .del{
+    position:absolute; top:5px; right:5px; width:22px; height:22px; border-radius:50%;
+    border:none; background:rgba(231,76,60,.9); color:#fff; cursor:pointer;
+  }
+</style>
+
+<script>
+  /* Flags côté JS */
+  window.IS_ADMIN = {% if request.user.role == 'ADMIN' %}true{% else %}false{% endif %};
+  window.CURRENT_USER_ID = {{ request.user.id|default:"null" }};
+</script>
+
+<script src="{% static 'js/dashboard_script.js' %}"></script>
+

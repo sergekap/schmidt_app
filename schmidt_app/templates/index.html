@@ -1,0 +1,198 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <title>Schmidt - Interface</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <!-- Indicateur de progression du scroll -->
+  <div class="scroll-indicator" id="scrollIndicator"></div>
+
+  <!-- Navigation fixe -->
+  <div class="container">
+    <div class="logo-container">
+      <img src="{% static 'images/logo.png' %}" alt="Schmidt Logo" class="logo">
+    </div>
+
+    <nav class="navigation">
+      <button class="nav-button active" data-section="facades">Façades</button>
+      <button class="nav-button" data-section="plans">Plans de travail</button>
+      <button class="nav-button" data-section="espaces">Espaces de la maison</button>
+      <button class="nav-button" data-section="ambiances">Ambiances</button>
+    </nav>
+  </div>
+
+  <!-- Contenu principal avec scroll -->
+  <div class="main-content">
+    <!-- ===================== FAÇADES ===================== -->
+    <div class="facades-subsections active">
+      {% for group in groups_facades %}
+        <div class="section-title fade-in">
+          <span class="section-title-text">{{ group.name }}</span>
+        </div>
+        <div class="bubbles-container fade-in">
+          {% for c in group.colors.all %}
+            <div
+              class="bubble"
+              data-color-id="{{ c.id }}"
+              data-color-name="{{ c.name }}"
+            >
+              <img
+                src="{% if c.presentation %}{{ c.presentation.image.url }}{% else %}{% static 'images/placeholder.jpg' %}{% endif %}"
+                alt="{{ c.presentation.alt|default:c.name }}"
+                class="bubble-image"
+                loading="lazy"
+              >
+              <span class="bubble-name">{{ c.name }}</span>
+            </div>
+          {% empty %}
+            <div class="bubble empty">Aucun coloris</div>
+          {% endfor %}
+        </div>
+      {% empty %}
+        <p class="empty-msg">Aucun groupe pour cette section.</p>
+      {% endfor %}
+    </div>
+
+    <!-- ===================== PLANS DE TRAVAIL ===================== -->
+    <div class="plans-subsections">
+      {% for group in groups_plans %}
+        <div class="section-title fade-in">
+          <span class="section-title-text">{{ group.name }}</span>
+        </div>
+        <div class="bubbles-container fade-in">
+          {% for c in group.colors.all %}
+            <div
+              class="bubble"
+              data-color-id="{{ c.id }}"
+              data-color-name="{{ c.name }}"
+            >
+              <img
+                src="{% if c.presentation %}{{ c.presentation.image.url }}{% else %}{% static 'images/placeholder.jpg' %}{% endif %}"
+                alt="{{ c.presentation.alt|default:c.name }}"
+                class="bubble-image"
+                loading="lazy"
+              >
+              <span class="bubble-name">{{ c.name }}</span>
+            </div>
+          {% empty %}
+            <div class="bubble empty">Aucun coloris</div>
+          {% endfor %}
+        </div>
+      {% empty %}
+        <p class="empty-msg">Aucun groupe pour cette section.</p>
+      {% endfor %}
+    </div>
+
+    <!-- ===================== ESPACES DE LA MAISON ===================== -->
+    <div class="espaces-subsections">
+      {% for group in groups_espaces %}
+        <div class="section-title fade-in">
+          <span class="section-title-text">{{ group.name }}</span>
+        </div>
+        <div class="bubbles-container fade-in">
+          {% for c in group.colors.all %}
+            <div
+              class="bubble"
+              data-color-id="{{ c.id }}"
+              data-color-name="{{ c.name }}"
+            >
+              <img
+                src="{% if c.presentation %}{{ c.presentation.image.url }}{% else %}{% static 'images/placeholder.jpg' %}{% endif %}"
+                alt="{{ c.presentation.alt|default:c.name }}"
+                class="bubble-image"
+                loading="lazy"
+              >
+              <span class="bubble-name">{{ c.name }}</span>
+            </div>
+          {% empty %}
+            <div class="bubble empty">Aucun coloris</div>
+          {% endfor %}
+        </div>
+      {% empty %}
+        <p class="empty-msg">Aucun groupe pour cette section.</p>
+      {% endfor %}
+    </div>
+
+    <!-- ===================== AMBIANCES ===================== -->
+    <div class="ambiances-subsections">
+      {% for group in groups_ambiances %}
+        <div class="section-title fade-in">
+          <span class="section-title-text">{{ group.name }}</span>
+        </div>
+        <div class="bubbles-container fade-in">
+          {% for c in group.colors.all %}
+            <div
+              class="bubble"
+              data-color-id="{{ c.id }}"
+              data-color-name="{{ c.name }}"
+            >
+              <img
+                src="{% if c.presentation %}{{ c.presentation.image.url }}{% else %}{% static 'images/placeholder.jpg' %}{% endif %}"
+                alt="{{ c.presentation.alt|default:c.name }}"
+                class="bubble-image"
+                loading="lazy"
+              >
+              <span class="bubble-name">{{ c.name }}</span>
+            </div>
+          {% empty %}
+            <div class="bubble empty">Aucun coloris</div>
+          {% endfor %}
+        </div>
+      {% empty %}
+        <p class="empty-msg">Aucun groupe pour cette section.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Espacement en bas de page -->
+    <div class="page-bottom"></div>
+  </div>
+
+  <!-- Bouton de retour en haut -->
+  <button class="scroll-to-top" id="scrollToTop" aria-label="Retour en haut">↑</button>
+
+  <!-- Modal Carrousel -->
+  <div class="carousel-modal" id="carouselModal">
+    <div class="carousel-overlay" id="carouselOverlay"></div>
+    <div class="carousel-container">
+      <button class="carousel-close" id="carouselClose" aria-label="Fermer le carrousel">×</button>
+      <div class="carousel-header">
+        <h2 class="carousel-title">
+          <div class="carousel-title-line"></div>
+          <span class="carousel-title-prefix">Projets en </span><span class="carousel-title-color" id="carouselTitle"></span>
+        </h2>
+      </div>
+      <div class="carousel-content">
+        <div class="carousel-track-container" id="carouselTrackContainer">
+          <button class="carousel-nav-button prev" id="carouselPrevBtn" aria-label="Image précédente"></button>
+          <button class="carousel-nav-button next" id="carouselNextBtn" aria-label="Image suivante"></button>
+          <div class="carousel-track" id="carouselTrack"><!-- Slides dynamiques --></div>
+        </div>
+      </div>
+      <div class="carousel-thumbnails" id="carouselThumbnails"><!-- Miniatures dynamiques --></div>
+    </div>
+  </div>
+
+  <!-- Pop-up d'inactivité -->
+  <div id="inactivityModal" class="inactivity-modal">
+    <div class="inactivity-overlay"></div>
+    <div class="inactivity-container">
+      <div class="inactivity-content">
+        <h2 class="inactivity-title">Aucune activité détectée</h2>
+        <p class="inactivity-message">
+          Réinitialisation dans <span id="countdownTimer" class="countdown-timer">15</span> secondes
+        </p>
+        <div class="inactivity-buttons">
+          <button id="continueBtn" class="inactivity-btn continue-btn">Continuer</button>
+          <button id="resetBtn" class="inactivity-btn reset-btn">Réinitialiser</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script defer src="{% static 'js/script.js' %}"></script>
+</body>
+</html>

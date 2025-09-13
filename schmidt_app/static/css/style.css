@@ -1,0 +1,1425 @@
+/* Bouton de retour en haut stylisé */
+.scroll-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    z-index: 1500;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px) scale(0.8);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 25px rgba(231, 76, 60, 0.3), 
+                0 2px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    /* --- MODIFICATIONS --- */
+    /* Contrôlez la taille de la flèche ici */
+    font-size: 30px !important; /* Augmentez ou diminuez cette valeur */
+    font-weight: 900; /* Rend la flèche plus épaisse */
+    /* line-height: 1 !important; */ /* Supprimé car flexbox gère mieux le centrage */
+    padding-bottom: 6px; /* Ajustement manuel pour le centrage vertical */
+    
+    /* Support tactile amélioré */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(231, 76, 60, 0.3);
+    user-select: none;
+    -webkit-user-select: none;
+    
+    /* Amélioration de la zone tactile */
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.scroll-to-top::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+}
+
+.scroll-to-top:active {
+    transform: translateY(-3px) scale(1.05);
+    transition: all 0.1s ease;
+}
+
+.scroll-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+/* ... (le reste de votre CSS reste inchangé) ... */
+
+/* Responsive pour mobile */
+@media (max-width: 768px) {
+    .scroll-to-top {
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        /* --- MODIFICATION --- */
+        /* Ajustez la taille de la flèche pour les tablettes */
+        font-size: 25px !important;
+        padding-bottom: 2px; /* Ajustement manuel pour le centrage vertical */
+    }
+    
+    /* SUPPRESSION : Cette règle n\"est plus nécessaire */
+    /*
+    .scroll-to-top svg {
+        width: 25px;
+        height: 25px;
+    }
+    */
+}
+
+@media (max-width: 480px) {
+    .scroll-to-top {
+        bottom: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        /* --- MODIFICATION --- */
+        /* Ajustez la taille de la flèche pour les mobiles */
+        font-size: 22px !important;
+        padding-bottom: 1px; /* Ajustement manuel pour le centrage vertical */
+    }
+    
+    /* SUPPRESSION : Cette règle n\"est plus nécessaire */
+    /*
+    .scroll-to-top svg {
+        width: 22px;
+        height: 22px;
+    }
+    */
+}
+
+
+@font-face {
+    font-family: 'Corps';
+    src: url('../fonts/corps.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Titres';
+    src: url('../fonts/titres.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    /* Désactiver le zoom tactile et les interactions de zoom par défaut */
+    touch-action: manipulation; /* Permet le défilement et le zoom sur les éléments interactifs */
+    -webkit-touch-callout: none; /* Désactive le menu contextuel sur iOS */
+    -webkit-user-select: none; /* Empêche la sélection de texte */
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Autoriser le zoom uniquement pour les images en plein écran */
+.fullscreen-image {
+    touch-action: pinch-zoom !important; /* Autorise le zoom tactile */
+    -webkit-user-select: auto !important; /* Autorise la sélection */
+    user-select: auto !important;
+}
+
+html {
+    scroll-behavior: smooth;
+    /* Masquer la barre de scroll du navigateur */
+    overflow: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer et Edge */
+    
+    /* Amélioration du scroll tactile */
+    -webkit-overflow-scrolling: touch; /* Active le momentum scrolling sur iOS */
+    overscroll-behavior: contain; /* Empêche le scroll de déborder */
+}
+
+/* Masquer la scrollbar pour WebKit (Chrome, Safari, Edge) */
+html::-webkit-scrollbar {
+    display: none;
+}
+
+body {
+    background-color: rgba(52, 57, 62, 1);
+    font-family: 'Corps', Arial, sans-serif;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    /* Renforcer la désactivation du zoom pour les écrans tactiles */
+    -webkit-text-size-adjust: 100%; /* Empêche l'ajustement automatique de la taille du texte */
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent; /* Supprime la surbrillance au tap sur WebKit */
+    /* Masquer également la scrollbar sur le body */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer et Edge */
+    
+    /* Amélioration du scroll tactile */
+    -webkit-overflow-scrolling: touch; /* Active le momentum scrolling sur iOS */
+    overscroll-behavior-y: contain; /* Empêche le bounce scroll vertical */
+    overscroll-behavior-x: none; /* Empêche le scroll horizontal */
+    touch-action: pan-y; /* Permet seulement le scroll vertical tactile */
+}
+
+/* Masquer la scrollbar du body pour WebKit */
+body::-webkit-scrollbar {
+    display: none;
+}
+
+.container {
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: #34393e;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.logo-container {
+    margin-bottom: 20px;
+}
+
+.logo {
+    height: 60px;
+    width: auto;
+    object-fit: contain;
+}
+
+.navigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    align-items: center;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+
+.nav-button {
+    background-color: white;
+    color: #34393e;
+    border: none;
+    padding: 0;
+    padding-top: 2px;
+    font-family: 'Corps', Arial, sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-width: 200px;
+    max-width: 280px;
+    height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    line-height: 1;
+    
+    /* Support tactile amélioré */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(231, 76, 60, 0.3);
+    user-select: none;
+    -webkit-user-select: none;
+    
+    /* Amélioration de la zone tactile */
+    min-height: 44px; /* Taille minimale recommandée pour le tactile */
+    position: relative;
+}
+
+/* États tactiles pour les boutons de navigation */
+.nav-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nav-button:active {
+    transform: translateY(0);
+    transition: all 0.1s ease;
+}
+
+.nav-button.active {
+    background-color: #e74c3c;
+    color: white;
+    border: 2px solid rgb(255, 131, 131);
+}
+
+/* Contenu principal avec scroll */
+.main-content {
+    margin-top: 200px; /* Espace pour la navigation fixe */
+    padding: 20px 0;
+    min-height: calc(100vh - 200px);
+    
+    /* Optimisation du scroll tactile */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    max-width: 1800px;
+    margin: 60px auto 0 auto;
+    padding-left: 0;
+}
+
+.section-title-text {
+    font-family: 'Titres', Arial, sans-serif;
+    color: white;
+    font-size: 30px;
+    position: relative;
+    padding-left: 15px;
+}
+
+.section-title-text::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #e74c3c;
+}
+
+.facades-subsections {
+    display: none; /* Hidden by default */
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.facades-subsections.active {
+    display: block; /* Show when active */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.facades-subsections .section-title {
+    margin-top: 10px; /* Spacing between sub-sections */
+}
+
+.plans-subsections {
+    display: none; /* Hidden by default */
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.plans-subsections.active {
+    display: block; /* Show when active */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.plans-subsections .section-title {
+    margin-top: 10px; /* Spacing between sub-sections */
+}
+
+.espaces-subsections {
+    display: none; /* Hidden by default */
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.espaces-subsections.active {
+    display: block; /* Show when active */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.espaces-subsections .section-title {
+    margin-top: 10px; /* Spacing between sub-sections */
+}
+
+.ambiances-subsections {
+    display: none; /* Hidden by default */
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.ambiances-subsections.active {
+    display: block; /* Show when active */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Styles pour les bulles */
+.bubbles-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 30px;
+    max-width: 1800px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+.bubble {
+    background-color: rgba(88, 88, 88, 0.3);
+    border-radius: 20px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    backdrop-filter: blur(10px); /* Effet de flou derrière la bulle (pour un look "verre dépoli") */
+    -webkit-backdrop-filter: blur(10px); /* Compatibilité pour Safari */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    
+    /* Support tactile amélioré */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(231, 76, 60, 0.2);
+    user-select: none;
+    -webkit-user-select: none;
+    
+    /* Amélioration de la zone tactile */
+    min-height: 44px;
+    position: relative;
+}
+
+/* États tactiles pour les bulles */
+.bubble:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+.bubble:active {
+    transform: translateY(-2px) scale(0.98);
+    transition: all 0.1s ease;
+}
+
+.bubble-image {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 15px;
+    margin-bottom: 15px;
+    transition: transform 0.3s ease;
+}
+
+
+.bubble-name {
+    font-family: 'Corps', Arial, sans-serif;
+    font-size: 25px;
+    font-weight: 600;
+    color: #ffffff;
+    text-transform: capitalize;
+    display: block;
+    line-height: 1.2;
+}
+
+/* Ajustement de l'espacement pour les sous-sections */
+.facades-subsections .section-title {
+    margin-top: 40px;
+}
+
+.facades-subsections .section-title:first-child {
+    margin-top: 20px;
+}
+
+.plans-subsections .section-title {
+    margin-top: 40px;
+}
+
+.plans-subsections .section-title:first-child {
+    margin-top: 20px;
+}
+
+.espaces-subsections .section-title {
+    margin-top: 40px;
+}
+
+.espaces-subsections .section-title:first-child {
+    margin-top: 20px;
+}
+
+.scroll-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+/* Animation pour le contenu qui apparaît */
+.fade-in {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease;
+}
+
+.fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Espacement en bas de page */
+.page-bottom {
+    height: 100px;
+    background-color: #34393e;
+}
+
+
+/* Styles pour le carrousel modal */
+.carousel-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.carousel-modal.active {
+    display: flex;
+    opacity: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.carousel-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    cursor: pointer;
+}
+
+.carousel-container {
+    position: relative;
+    background-color: #34393e;
+    border-radius: 20px;
+    max-width: 95vw;
+    width: 1600px;
+    height: 85vh; /* Hauteur fixe élevée */
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transform: scale(0.8);
+    transition: transform 0.3s ease;
+    z-index: 2001;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.carousel-modal.active .carousel-container {
+    transform: scale(1);
+}
+
+.carousel-close {
+    position: fixed;
+    top: 15px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+    z-index: 2002;
+}
+
+.carousel-header {
+    text-align: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.carousel-title {
+    font-family: 'Titres', Arial, sans-serif;
+    color: white;
+    font-size: 15px;
+    margin: 0;
+    text-transform: capitalize;
+}
+
+.carousel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Nouveau design du carrousel avec conteneurs de taille fixe */
+.carousel-track-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.carousel-track {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    transition: none !important;
+    will-change: transform;
+    perspective: 1200px;
+    perspective-origin: center center;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+/* Conteneurs de slides avec taille fixe pour éviter le redimensionnement */
+.carousel-slide {
+    flex: 0 0 auto;
+    height: 100%;
+    border-radius: 15px;
+    overflow: hidden;
+    transition: none !important;
+    transform-origin: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    /* Taille fixe pour éviter le redimensionnement */
+    width: 50%;
+    min-height: 400px; /* Hauteur minimale fixe */
+    /* CORRECTION: Curseur par défaut pour la slide */
+    cursor: default !important;
+}
+
+/* Images avec object-fit pour s\'adapter sans redimensionner le conteneur */
+.carousel-image {
+    width: 100% !important; /* Forcer la largeur à 100% du conteneur */
+    height: 100% !important; /* Forcer la hauteur à 100% du conteneur */
+    object-fit: contain; /* L\'image s\'adapte en gardant ses proportions */
+    object-position: center; /* Centrer l\'image dans le conteneur */
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    transition: none !important;
+    display: block;
+    /* Supprimer toute possibilité de redimensionnement */
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    /* CORRECTION: Pas de curseur défini ici, sera géré par JavaScript */
+}
+
+.carousel-slide.active .carousel-image {
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+}
+
+.carousel-counter {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-family: 'Corps', Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+}
+
+/* Boutons de navigation du carrousel */
+.carousel-nav-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.9), rgba(192, 57, 43, 0.9));
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: none !important;
+    z-index: 20;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+}
+
+.carousel-nav-button:active {
+    transform: translateY(-50%) scale(0.95);
+    transition: none !important;
+}
+
+.carousel-nav-button.prev {
+    left: 20px;
+}
+
+.carousel-nav-button.next {
+    right: 20px;
+}
+
+.carousel-nav-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 0;
+    height: 0;
+    transition: none !important;
+}
+
+.carousel-nav-button.prev::before {
+    border-right: 8px solid white;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    margin-left: -2px;
+}
+
+.carousel-nav-button.next::before {
+    border-left: 8px solid white;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    margin-left: 2px;
+}
+
+.carousel-nav-button.pulse {
+    animation: none !important;
+}
+
+.carousel-track-container:hover .carousel-swipe-indicator {
+    opacity: 0.6;
+}
+
+/* Miniatures améliorées avec scroll horizontal */
+.carousel-thumbnails {
+    display: flex;
+    justify-content: flex-start; /* Alignement à gauche pour le scroll horizontal */
+    gap: 20px; /* Gap augmenté pour éviter les chevauchements lors de l'agrandissement */
+    flex-wrap: nowrap; /* Empêche le passage à la ligne */
+    height: 120px; /* Hauteur augmentée pour accommoder l'effet d'agrandissement */
+    overflow-x: auto; /* Scroll horizontal au lieu de vertical */
+    overflow-y: hidden; /* Empêche strictement le scroll vertical */
+    padding: 20px 20px 20px 30px; /* Padding gauche augmenté pour la première miniature */
+    flex-shrink: 0;
+    /* Masquer la scrollbar tout en gardant la fonctionnalité */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer et Edge */
+}
+
+/* Masquer complètement la scrollbar pour WebKit (Chrome, Safari, Edge) */
+.carousel-thumbnails::-webkit-scrollbar {
+    display: none; /* Masque complètement la scrollbar */
+}
+
+.carousel-thumbnail {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 10px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: none !important;
+    border: 3px solid transparent;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0; /* Empêche les miniatures de rétrécir dans le conteneur flex */
+}
+
+.carousel-thumbnail::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: none !important;
+}
+
+.carousel-thumbnail.active {
+    opacity: 1;
+    border-color: #e74c3c;
+    transform: scale(1.15);
+    box-shadow: 0 0.5px 15px rgba(231, 76, 60, 0.4);
+}
+
+/* Effets de transition pour le défilement infini */
+.carousel-track.transitioning {
+    transition: none !important;
+}
+
+.carousel-slide.active .carousel-image {
+    animation: none !important;
+}
+
+/* Effets de parallaxe et 3D pour les images adjacentes avec tailles fixes */
+.carousel-slide.prev {
+    transform: scale(1) perspective(1000px) rotateY(8deg) translateZ(-100px);
+    opacity: 0.3;
+    z-index: 0;
+    filter: brightness(0.7);
+    width: 50%;
+    margin-right: -15%;
+    margin-left: 5%;
+}
+
+.carousel-slide.active {
+    transform: scale(1) perspective(1000px) rotateY(0deg) translateZ(0px);
+    opacity: 1;
+    z-index: 3;
+    filter: brightness(1);
+    width: 50%;
+}
+
+.carousel-slide.next {
+    transform: scale(1) perspective(1000px) rotateY(-8deg) translateZ(-100px);
+    opacity: 0.3;
+    z-index: 0;
+    filter: brightness(0.7);
+    width: 50%;
+    margin-left: -15%;
+    margin-right: 5%;
+}
+
+/* Animation fluide pour les transitions */
+.carousel-slide.transitioning {
+    transition: none !important;
+}
+
+/* Images dans les slides - pas de transform supplémentaire pour éviter les conflits */
+.carousel-slide.prev .carousel-image,
+.carousel-slide.next .carousel-image,
+.carousel-slide.active .carousel-image {
+    transform: none;
+}
+
+.carousel-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.carousel-title-line {
+    width: 4px;
+    height: 30px; /* Ajuster la hauteur pour correspondre à la taille du texte */
+    background-color: #e74c3c;
+    margin-right: 10px;
+}
+
+.carousel-title-prefix {
+    font-family: 'Titres', Arial, sans-serif;
+    color: white;
+    font-size: 30px;
+    white-space: nowrap;
+    text-transform: lowercase;
+}
+
+.carousel-title-prefix::first-letter {
+    text-transform: uppercase;
+}
+
+.carousel-title-color {
+    font-family: 'Titres', Arial, sans-serif;
+    color: white;
+    font-size: 30px;
+    text-transform: capitalize;
+    white-space: nowrap;
+    margin-left: 9px;
+}
+
+
+/* Styles pour le modal de plein écran */
+.fullscreen-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3000;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.fullscreen-modal.active {
+    display: flex;
+    opacity: 1;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.fullscreen-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    cursor: pointer;
+}
+
+.fullscreen-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3001;
+}
+
+.fullscreen-image {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    display: block;
+}
+
+.fullscreen-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border: none;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    z-index: 3002;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.fullscreen-close:hover {
+    background-color: rgba(231, 76, 60, 0.9);
+    border-color: rgba(231, 76, 60, 0.5);
+    transform: scale(1.1);
+}
+
+/* CORRECTION: Suppression de la règle problématique qui appliquait zoom-in à toute l\'image active */
+/* Cette règle a été supprimée car elle causait le problème de curseur */
+
+/* Responsive pour le plein écran */
+@media (max-width: 768px) {
+    .fullscreen-modal.active {
+        padding: 10px;
+    }
+    
+    .fullscreen-close {
+        top: 15px;
+        right: 15px;
+        font-size: 25px;
+        width: 40px;
+        height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fullscreen-modal.active {
+        padding: 5px;
+    }
+    
+    .fullscreen-close {
+        top: 10px;
+        right: 10px;
+        font-size: 22px;
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* Gestion spéciale pour les images très larges ou très hautes */
+@media (orientation: landscape) {
+    .fullscreen-image {
+        max-height: calc(100vh - 40px);
+        max-width: calc(100vw - 40px);
+    }
+}
+
+@media (orientation: portrait) {
+    .fullscreen-image {
+        max-width: calc(100vw - 40px);
+        max-height: calc(100vh - 40px);
+    }
+}
+
+
+/* Optimisation spécifique pour les écrans 1920x1080 */
+@media (min-width: 1920px) {
+    .bubbles-container {
+        max-width: 1800px;
+        gap: 40px;
+        padding: 0 60px;
+    }
+    
+    .bubble {
+        padding: 25px;
+    }
+    
+    .bubble-image {
+        height: 280px;
+    }
+    
+    .bubble-name {
+        font-size: 28px;
+    }
+    
+    .section-title {
+        max-width: 1800px;
+        padding-left: 60px;
+    }
+    
+    .section-title-text {
+        font-size: 35px;
+    }
+    
+    .navigation {
+        max-width: 1800px;
+        gap: 30px;
+    }
+    
+    .nav-button {
+        min-width: 250px;
+        max-width: 350px;
+        height: 60px;
+        font-size: 22px;
+    }
+}
+
+/* Optimisation pour les écrans très larges (au-delà de 1920px) */
+@media (min-width: 2560px) {
+    .bubbles-container {
+        max-width: 2400px;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 50px;
+        padding: 0 80px;
+    }
+    
+    .section-title {
+        max-width: 2400px;
+        padding-left: 80px;
+    }
+    
+    .navigation {
+        max-width: 2400px;
+    }
+}
+
+
+/* Styles pour le pop-up d'inactivité */
+.inactivity-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.inactivity-modal.active {
+    display: flex;
+    opacity: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.inactivity-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.inactivity-container {
+    position: relative;
+    background-color: #34393e;
+    border-radius: 20px;
+    max-width: 90vw;
+    width: 500px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    transform: scale(0.8);
+    transition: transform 0.3s ease;
+    z-index: 10000;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.inactivity-modal.active .inactivity-container {
+    transform: scale(1);
+}
+
+.inactivity-content {
+    text-align: center;
+}
+
+.inactivity-title {
+    font-family: 'Titres', Arial, sans-serif;
+    color: white;
+    font-size: 28px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.inactivity-message {
+    font-family: 'Corps', Arial, sans-serif;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 18px;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.countdown-timer {
+    color: #e74c3c;
+    font-weight: bold;
+    font-size: 22px;
+    text-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+
+.inactivity-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.inactivity-btn {
+    font-family: 'Corps', Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 15px 30px;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 140px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.continue-btn {
+    background-color: #27ae60;
+    color: white;
+    border: 2px solid #27ae60;
+}
+
+.continue-btn:hover {
+    background-color: #2ecc71;
+    border-color: #2ecc71;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(46, 204, 113, 0.3);
+}
+
+.continue-btn:active {
+    transform: translateY(0);
+    transition: transform 0.1s ease;
+}
+
+.reset-btn {
+    background-color: #e74c3c;
+    color: white;
+    border: 2px solid #e74c3c;
+}
+
+.reset-btn:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.3);
+}
+
+.reset-btn:active {
+    transform: translateY(0);
+    transition: transform 0.1s ease;
+}
+
+/* Responsive pour le pop-up d'inactivité */
+@media (max-width: 768px) {
+    .inactivity-container {
+        width: 90vw;
+        padding: 30px 20px;
+    }
+    
+    .inactivity-title {
+        font-size: 24px;
+    }
+    
+    .inactivity-message {
+        font-size: 16px;
+    }
+    
+    .countdown-timer {
+        font-size: 20px;
+    }
+    
+    .inactivity-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .inactivity-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .inactivity-container {
+        padding: 25px 15px;
+    }
+    
+    .inactivity-title {
+        font-size: 20px;
+    }
+    
+    .inactivity-message {
+        font-size: 14px;
+    }
+    
+    .countdown-timer {
+        font-size: 18px;
+    }
+}
+
+
+/* Optimisations supplémentaires pour le scroll tactile */
+* {
+    /* Améliore la fluidité du scroll sur tous les éléments */
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Optimisations spécifiques pour les appareils tactiles */
+@media (hover: none) and (pointer: coarse) {
+    /* Styles spécifiques aux appareils tactiles */
+    html, body {
+        /* Améliore la réactivité du scroll */
+        scroll-snap-type: none;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    
+    .main-content {
+        /* Optimise le scroll pour les gestes tactiles */
+        will-change: scroll-position;
+        transform: translateZ(0); /* Force l'accélération matérielle */
+    }
+    
+    .bubbles-container {
+        /* Optimise le rendu des bulles pendant le scroll */
+        will-change: transform;
+        transform: translateZ(0);
+    }
+    
+    .bubble {
+        /* Améliore les performances pendant le scroll */
+        will-change: transform;
+        backface-visibility: hidden;
+    }
+}
+
+/* Optimisations pour iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    body {
+        /* Améliore le momentum scrolling sur iOS */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+    }
+}
+
+/* Optimisations pour Android Chrome */
+@media screen and (-webkit-min-device-pixel-ratio: 1) {
+    html {
+        /* Améliore la fluidité sur Android */
+        scroll-behavior: auto; /* Désactive smooth scroll sur Android pour plus de réactivité */
+    }
+    
+    .main-content {
+        /* Force l'accélération matérielle sur Android */
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+
+/* Optimisations de performance pendant le scroll tactile */
+body.scrolling {
+    /* Désactive les animations pendant le scroll pour améliorer les performances */
+    pointer-events: none;
+}
+
+body.scrolling * {
+    /* Optimise le rendu pendant le scroll */
+    animation-play-state: paused !important;
+    transition: none !important;
+}
+
+body.scrolling .bubble {
+    /* Maintient les interactions sur les bulles même pendant le scroll */
+    pointer-events: auto;
+}
+
+/* Amélioration de la fluidité du scroll sur les conteneurs */
+.bubbles-container {
+    /* Force l'accélération matérielle */
+    transform: translateZ(0);
+    will-change: scroll-position;
+}
+
+/* Optimisation pour les transitions pendant le scroll */
+@media (hover: none) and (pointer: coarse) {
+    .fade-in {
+        /* Réduit la complexité des animations sur mobile */
+        transition: opacity 0.2s ease !important;
+    }
+    
+    .bubble {
+        /* Optimise les transitions des bulles sur tactile */
+        transition: transform 0.1s ease !important;
+    }
+}
+
+
+
+
+/* Nouveaux styles pour le conteneur de l'image fullscreen */
+.fullscreen-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-image-container {
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Permet le scroll de l'image si elle est plus grande que le conteneur */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transform-origin: center center;
+    transition: transform 0.3s ease;
+}
+
+
+/* === Message "Aucun groupe pour cette section." === */
+.main-content .empty-msg{
+  width: 100%;
+  max-width: 1800px;
+  margin: 40px auto 60px;                 /* même largeur/rythme que le reste */
+  padding: 16px 20px;
+  background: rgba(255,255,255,.06);
+  border: 1px dashed rgba(255,255,255,.18);
+  border-radius: 12px;
+  color: rgba(255,255,255,.92);
+  font-family: 'Corps', Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.18);
+}
+
+/* Petite icône avant le texte (SVG inline pour rester net en sombre) */
+.main-content .empty-msg::before{
+  content:"";
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  background: no-repeat center/18px 18px
+    url("data:image/svg+xml;utf8,\
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e74c3c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>\
+      <circle cx='12' cy='12' r='10'/>\
+      <line x1='12' y1='8' x2='12' y2='13'/>\
+      <circle cx='12' cy='17' r='1'/>\
+    </svg>");
+  opacity:.95;
+}
+
+/* Responsive */
+@media (max-width: 768px){
+  .main-content .empty-msg{
+    margin: 24px auto 40px;
+    padding: 14px 16px;
+    font-size: 16px;
+  }
+}
