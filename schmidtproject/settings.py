@@ -23,10 +23,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+_2+s&3@x_v^8#iy-8!c-tqpl8ii=r!++@d33!53n!qcli=0$d'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False  # en prod
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["82.29.174.7"]
 
+AUTH_USER_MODEL = "accounts.User"
 
 # Application definition
 
@@ -120,6 +121,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [ BASE_DIR / 'schmidt_app' / 'static' ]
+
+STATIC_ROOT = BASE_DIR / "static"
+
+
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
