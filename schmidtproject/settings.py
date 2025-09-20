@@ -23,9 +23,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+_2+s&3@x_v^8#iy-8!c-tqpl8ii=r!++@d33!53n!qcli=0$d'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False  # en prod
+DEBUG = True  # en prod
 
-ALLOWED_HOSTS = ["82.29.174.7"]
+ALLOWED_HOSTS = ["82.29.174.7", "127.0.0.1", "localhost"]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://82.29.174.7",
+]
 
 AUTH_USER_MODEL = "accounts.User"
 
