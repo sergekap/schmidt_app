@@ -1071,3 +1071,130 @@ document.addEventListener('keydown', (e) => {
     if (cancelBtn) cancelBtn.click();
   }
 });
+document.addEventListener("DOMContentLoaded", function () {
+  // ------- Helpers -------
+  const $ = (id) => document.getElementById(id);
+  const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+
+  // ------- Formatage durées -------
+  const fmtH  = (s) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  const fmtMS = (s) => `${Math.floor(s / 60)}m ${s % 60}s`;
+
+  // ------- Remplissage d'un breakdown (table) -------
+  async function fillBreakdown(section, containerId) {
+    const box = $(containerId);
+    if (!box) return;
+
+    try {
+      const r = await fetch(`/api/perf/breakdown/${section}/`);
+      const { items = [] } = await r.json();
+
+      items.sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
+      const maxClicks = Math.max(1, ...items.map(it => it.clicks || 0));
+
+      const rowsHTML = items.map(it => {
+        const nameOnly = it.name || "";
+        const pct = Math.round((it.clicks || 0) * 100 / maxClicks);
+        const title = it.group ? ` title="[${it.group}] ${it.name}"` : "";
+        return `
+          <tr class="perf-row">
+            <td class="perf-col-name"${title}>${nameOnly}</td>
+            <td class="perf-col-clicks">${it.clicks ?? 0}</td>
+            <td class="perf-col-pop">
+              <div class="pop-bar" aria-label="Popularité ${pct}%">
+                <span class="pop-fill" style="width:${pct}%"></span>
+                <span class="pop-tip">${pct}%</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      const tableHTML = `
+        <div class="perf-table-wrap">
+          <table class="perf-table" role="table">
+            <thead>
+              <tr>
+                <th class="perf-col-name">ÉLÉMENT</th>
+                <th class="perf-col-clicks">CLICS</th>
+                <th class="perf-col-pop">POPULARITÉ</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>
+        </div>
+      `;
+
+      box.innerHTML = tableHTML;
+    } catch (e) {
+      console.error("Erreur breakdown", section, e);
+      box.innerHTML = `<div class="compact-list-empty">Impossible de charger les données.</div>`;
+    }
+  }
+
+  // ------- Chargement des stats globales -------
+  async function loadStats() {
+    try {
+      const r = await fetch("/api/perf/stats/");
+      const j = await r.json();
+
+      setText("sessionsCount", j.sessions ?? 0);
+      setText("totalDuration", fmtH(j.total_duration_seconds ?? 0));
+      setText("avgDuration",   fmtMS(j.avg_duration_seconds ?? 0));
+
+      const setSec = (key, prefix) => {
+        const s = (j.sections && j.sections[key]) || { elements: 0, clicks: 0 };
+        setText(`${prefix}Count`,  s.elements);
+        setText(`${prefix}Clicks`, s.clicks);
+      };
+      setSec("facades",  "facades");
+      setSec("plans",    "plans");
+      setSec("espaces",  "espaces");
+      setSec("ambiances","ambiances");
+    } catch (err) {
+      console.error("Erreur loadStats", err);
+    }
+  }
+
+  // ------- Accordéon (toggle + lazy-load) -------
+  function setupPerfAccordion() {
+    const map = {
+      facades:   "facadeClicksContainer",
+      plans:     "plansClicksContainer",
+      espaces:   "espacesClicksContainer",
+      ambiances: "ambiancesClicksContainer",
+    };
+
+    document.querySelectorAll(".acc-card .acc-summary").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const card    = btn.closest(".acc-card");
+        const content = card.querySelector(".acc-content");
+        const caret   = btn.querySelector(".acc-caret");
+        const section = card.dataset.section;
+        const containerId = map[section];
+
+        const opening = !card.classList.contains("open");
+        card.classList.toggle("open", opening);
+        btn.setAttribute("aria-expanded", opening ? "true" : "false");
+        if (caret) caret.classList.toggle("rot", opening);
+
+        if (opening) {
+          if (!card.dataset.loaded) {
+            await fillBreakdown(section, containerId);
+            card.dataset.loaded = "1";
+          }
+          content.style.maxHeight = content.scrollHeight + "px";
+        } else {
+          content.style.maxHeight = 0;
+        }
+      });
+    });
+  }
+
+  // ------- Init -------
+  loadStats().then(setupPerfAccordion).catch(console.error);
+
+  const perfBtn = $("performanceBtn");
+  if (perfBtn) perfBtn.addEventListener("click", () => loadStats().catch(console.error));
+});

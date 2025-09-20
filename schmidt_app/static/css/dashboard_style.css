@@ -3010,21 +3010,124 @@ body {
 .compact-list-container .row-meta{ color:rgba(255,255,255,.75); }
 
 
+/* ====== Performances – tableau breakdown ====== */
+.perf-subsummary{
+  margin: 10px 12px 8px;
+  color: #cfd3d7;
+  font-size: 14px;
+}
 
-/* Tableau perf */
-.perf-table{ width:100%; border-radius:10px; overflow:hidden; background:#2f3438; }
-.perf-tr{ display:grid; grid-template-columns: 1fr 120px 1.6fr; align-items:center; padding:14px 18px; border-bottom:1px solid rgba(255,255,255,.06); }
-.perf-tr--head{ background:#f1f2f4; color:#111; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
-.perf-tr--alt{ background:rgba(255,255,255,.03); }
-.perf-th{ font-size:14px; }
-.perf-th--num, .perf-td--num{ text-align:right; }
-.perf-td{ color:#e6e7e8; font-size:15px; }
-.perf-td--label{ font-weight:600; }
+.perf-table-wrap{
+  background: #2c3136;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  overflow: auto;
+  max-height: 420px;              /* scroll interne comme la capture */
+}
 
-/* Barre de popularité */
-.pop-bar{ position:relative; height:8px; border-radius:999px; overflow:hidden; }
-.pop-bar-bg{ position:absolute; inset:0; background:#545b61; opacity:.6; }
-.pop-bar-fg{ position:absolute; inset:0 auto 0 0; background:#e44534; }
+.perf-table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 760px;               /* évite la casse sur petites largeurs */
+}
 
-/* Message vide */
-.empty-stats-message{ padding:18px; color:#cbd1d6; background:#2f3438; border-radius:10px; }
+.perf-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f3f4f6;            /* bandeau clair */
+  color: #d23d35;                 /* rouge titre */
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+
+.perf-row td{
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: #e7eaed;
+  font-size: 14px;
+}
+
+.perf-row:hover td{
+  background: rgba(255,255,255,0.03);
+}
+
+.perf-col-name{ width: 46%; }
+.perf-col-clicks{ width: 12%; text-align: left; white-space: nowrap; color:#f1f3f5; }
+.perf-col-pop{ width: 42%; }
+
+.pop-bar{
+  position: relative;
+  height: 8px;
+  border-radius: 6px;
+  background: #4a4f55;            /* piste */
+  overflow: hidden;
+}
+
+.pop-fill{
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: #d23d35;            /* rouge Schmidt */
+  transform: translateZ(0);
+  transition: width .45s ease;
+}
+
+/* petit pourcentage discret au-dessus de la barre (option esthétique) */
+.pop-tip{
+  position: absolute;
+  right: 6px;
+  top: -18px;
+  font-size: 11px;
+  color: #cfd3d7;
+}
+
+/* scrollbar discrète du bloc table */
+.perf-table-wrap::-webkit-scrollbar{ width: 8px; height: 8px; }
+.perf-table-wrap::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+}
+.perf-table-wrap::-webkit-scrollbar-track{
+  background: transparent;
+}
+
+
+/* Accordéon perf */
+.acc-summary{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:12px 16px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:#3a4046;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.acc-caret{
+  width:0; height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-top:8px solid #d23d35;   /* petite flèche rouge */
+  transition: transform .25s ease;
+}
+.acc-caret.rot{ transform: rotate(180deg); }
+
+.acc-content{
+  overflow:hidden;
+  max-height:0;
+  transition:max-height .35s ease;
+  margin-top:10px;
+}
+
+/* conteneur de la table (déjà proposé) */
+.perf-table-wrap{ background:#2c3136; border:1px solid rgba(255,255,255,0.06); border-radius:6px; overflow:auto; max-height:420px; }

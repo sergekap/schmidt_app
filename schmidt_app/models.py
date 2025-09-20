@@ -211,3 +211,42 @@ class ColorImage(models.Model):
         if self.is_presentation:
             ColorImage.objects.filter(color=self.color).exclude(pk=self.pk).update(is_presentation=False)
         self.update_file_url(commit=True)
+
+# ---------- Performance / Analytics ----------
+import uuid
+from django.utils import timezone
+
+class UsageSession(models.Model):
+    """
+    Une session commence au PREMIER clic (dans l’interface /) et se termine
+    quand on revient “Home” (logo / reset / inactivité).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    started_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    ended_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    clicks_count = models.PositiveIntegerField(default=0)
+    client_id = models.CharField(max_length=64, blank=True)  # id anonyme (localStorage)
+    user_agent = models.CharField(max_length=255, blank=True)
+    remote_addr = models.GenericIPAddressField(null=True, blank=True)
+
+    @property
+    def duration_seconds(self):
+        end = self.ended_at or timezone.now()
+        return int((end - self.started_at).total_seconds())
+
+class ClickEvent(models.Model):
+    """
+    Log léger de chaque clic pour les stats fines (catégorie, élément, action).
+    """
+    session = models.ForeignKey(UsageSession, related_name="events", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    section = models.CharField(max_length=20, choices=Section.choices)
+    color = models.ForeignKey('Color', null=True, blank=True, on_delete=models.SET_NULL)
+    action = models.CharField(max_length=32)  # ex: 'bubble', 'carousel', 'image', 'fullscreen', 'home'
+    meta = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["section"]),
+        ]

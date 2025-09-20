@@ -653,3 +653,162 @@ def _group_dict(request, group: ColorGroup, with_colors=True):
         colors = group.colors.order_by("position", "name").all()
         d["colors"] = [_color_dict(request, c) for c in colors]
     return d
+
+
+import json
+from django.db.models import F, Sum, Count
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST, require_GET
+from django.http import JsonResponse, HttpResponseBadRequest
+from .models import UsageSession, ClickEvent, Color, ColorGroup, Section
+
+def _ip(request):
+    return (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()
+
+# ---------- Sessions ----------
+@csrf_exempt
+@require_POST
+def perf_session_start(request):
+    """
+    Body: {"client_id": "..."} -> { "session_id": "..." }
+    Démarre une session si pas déjà en cours côté client.
+    """
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        data = {}
+    s = UsageSession.objects.create(
+        client_id=data.get("client_id",""),
+        user_agent=request.META.get("HTTP_USER_AGENT",""),
+        remote_addr=_ip(request),
+    )
+    return JsonResponse({"session_id": str(s.id)})
+
+@csrf_exempt
+@require_POST
+def perf_session_stop(request):
+    """
+    Body: {"session_id": "..."} -> { "duration_seconds": 123 }
+    Termine la session.
+    """
+    try:
+        data = json.loads(request.body or "{}")
+        sid = data.get("session_id")
+        if not sid: return HttpResponseBadRequest("session_id manquant")
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("JSON invalide")
+
+    try:
+        s = UsageSession.objects.get(pk=sid, ended_at__isnull=True)
+    except UsageSession.DoesNotExist:
+        # idempotent: si déjà fermée, renvoyer ok avec 0/valeur actuelle
+        s = UsageSession.objects.filter(pk=sid).first()
+        return JsonResponse({"duration_seconds": s.duration_seconds if s else 0})
+
+    s.ended_at = timezone.now()
+    s.save(update_fields=["ended_at"])
+    return JsonResponse({"duration_seconds": s.duration_seconds})
+
+# ---------- Tracking des clics ----------
+@csrf_exempt
+@require_POST
+def perf_track(request):
+    """
+    Body minimal attendu:
+    {
+      "session_id": "...",           # requis
+      "action": "bubble|image|...",  # requis
+      "section": "facades|plans|espaces|ambiances", # requis
+      "color_id": 123,               # optionnel (si clic sur une couleur)
+      "meta": {...}                  # optionnel
+    }
+    -> 204 No Content
+    """
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("JSON invalide")
+
+    sid = data.get("session_id")
+    action = data.get("action")
+    section = data.get("section")
+    if not (sid and action and section):
+        return HttpResponseBadRequest("champs requis manquants")
+
+    session = UsageSession.objects.filter(pk=sid).first()
+    if not session:
+        return HttpResponseBadRequest("session invalide")
+
+    color = None
+    color_id = data.get("color_id")
+    if color_id:
+        color = Color.objects.filter(pk=color_id).first()
+        if color:
+            Color.objects.filter(pk=color.pk).update(clicks=F("clicks") + 1)
+
+    ClickEvent.objects.create(
+        session=session,
+        section=section,
+        color=color,
+        action=action,
+        meta=data.get("meta") or {},
+    )
+    UsageSession.objects.filter(pk=session.pk).update(clicks_count=F("clicks_count") + 1)
+    return JsonResponse({}, status=204)
+
+# ---------- Stats pour le dashboard ----------
+@require_GET
+def perf_stats(request):
+    """
+    Renvoie :
+    {
+      "sessions": 42,
+      "total_duration_seconds": 1234,
+      "avg_duration_seconds": 29,
+      "sections": {
+        "facades": {"elements": 10, "clicks": 123},
+        "plans":   {"elements":  8, "clicks":  45},
+        ...
+      }
+    }
+    """
+    # sessions
+    sessions_qs = UsageSession.objects.exclude(ended_at__isnull=True)
+    sessions_count = sessions_qs.count()
+    total_duration = sum(s.duration_seconds for s in sessions_qs)
+    avg_duration = int(total_duration / sessions_count) if sessions_count else 0
+
+    # par section
+    out = {}
+    for sec_value, _sec_label in Section.choices:
+        elements = Color.objects.filter(group__section=sec_value).count()
+        clicks = Color.objects.filter(group__section=sec_value).aggregate(n=Sum("clicks"))["n"] or 0
+        out[sec_value] = {"elements": elements, "clicks": clicks}
+
+    return JsonResponse({
+        "sessions": sessions_count,
+        "total_duration_seconds": total_duration,
+        "avg_duration_seconds": avg_duration,
+        "sections": out,
+    })
+
+@require_GET
+def perf_breakdown(request, section: str):
+    """
+    Détail des clics par élément pour une section.
+    -> [{ "id": 1, "name": "...", "group": "...", "clicks": 12 }, ...]
+    """
+    colors = (
+        Color.objects
+        .filter(group__section=section)
+        .select_related("group")
+        .order_by("-clicks", "group__position", "position", "name")
+    )
+    data = [{
+        "id": c.id,
+        "name": c.name,
+        "group": c.group.name if c.group_id else "",
+        "clicks": c.clicks,
+    } for c in colors]
+    return JsonResponse({"items": data})

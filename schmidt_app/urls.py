@@ -29,9 +29,11 @@ urlpatterns = [
     path("api/users/", views.users_list_create, name="users_list_create"),
     path("api/users/<int:user_id>/", views.user_detail, name="user_detail"),
 
-    # (clicks désactivés pour l’instant)
-    # path("api/clicks/", views.clicks_total, name="clicks_total"),
-    # path("api/clicks/breakdown/", views.clicks_breakdown, name="clicks_breakdown"),
-    # path("api/track-click/", views.track_click, name="track_click"),
-    # path("api/clicks/collect/", views.clicks_collect, name="clicks_collect"),
+    # Performance API
+    path("api/perf/session-start/", views.perf_session_start, name="perf_session_start"),
+    path("api/perf/session-stop/", views.perf_session_stop, name="perf_session_stop"),
+    path("api/perf/track/", views.perf_track, name="perf_track"),
+    path("api/perf/stats/", views.perf_stats, name="perf_stats"),
+    path("api/perf/breakdown/<str:section>/", views.perf_breakdown, name="perf_breakdown"),
+
 ]

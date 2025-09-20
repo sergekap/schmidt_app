@@ -677,3 +677,84 @@ document.addEventListener("DOMContentLoaded", function() {
 
   fixImageSources();
 });
+
+// ============= Performance tracking =============
+(function(){
+  const PERF = {
+    sessionId: null,
+    activeSection: "facades",
+    get csrftoken(){
+      const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+      return m ? m[2] : "";
+    },
+    async startIfNeeded(){
+      if (this.sessionId) return;
+      const clientId = localStorage.getItem("client_id") || (Math.random().toString(36).slice(2));
+      localStorage.setItem("client_id", clientId);
+      const r = await fetch("/api/perf/session-start/", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({client_id: clientId})
+      });
+      const j = await r.json();
+      this.sessionId = j.session_id;
+    },
+    async stop(opts={}){
+      if(!this.sessionId) return;
+      try{
+        await fetch("/api/perf/session-stop/", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({session_id: this.sessionId})
+        });
+      } finally {
+        this.sessionId = null;
+      }
+    },
+    async track(action, payload){
+      await this.startIfNeeded();
+      const body = Object.assign({session_id: this.sessionId, action, section: this.activeSection}, payload||{});
+      // fire and forget
+      fetch("/api/perf/track/", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body)
+      }).catch(()=>{});
+    }
+  };
+
+  // section active (boutons du header)
+  document.body.addEventListener("click", (e)=>{
+    const btn = e.target.closest('.nav-button[data-section]');
+    if(btn){ PERF.activeSection = btn.dataset.section; }
+  }, true);
+
+  // clic sur une bulle couleur
+  document.body.addEventListener("click", (e)=>{
+    const bub = e.target.closest('.bubble[data-color-id]');
+    if(!bub) return;
+    PERF.track("bubble", {color_id: parseInt(bub.dataset.colorId)});
+  }, true);
+
+  // clic sur une image du carrousel (si balisage différent, adapte le sélecteur)
+  document.body.addEventListener("click", (e)=>{
+    const img = e.target.closest('.carousel-image[data-color-id]');
+    if(!img) return;
+    const cid = img.dataset.colorId ? parseInt(img.dataset.colorId) : null;
+    PERF.track("image", {color_id: cid});
+  }, true);
+
+  // retour "Home" = fin de session
+  // (logo, bouton reset inactivité, ou toute action qui ramène à l’état initial)
+  const stopSelectors = [".logo-container", "#resetBtn"];
+  document.body.addEventListener("click", (e)=>{
+    if (stopSelectors.some(sel => e.target.closest(sel))) {
+      PERF.stop();
+    }
+  }, true);
+
+  // sécurité : si on ferme l’onglet
+  window.addEventListener("beforeunload", ()=>{ PERF.stop(); });
+
+})();
+
