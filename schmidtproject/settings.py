@@ -23,14 +23,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+_2+s&3@x_v^8#iy-8!c-tqpl8ii=r!++@d33!53n!qcli=0$d'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # en prod
+DEBUG = False  # en prod
 
-ALLOWED_HOSTS = ["82.29.174.7", "127.0.0.1", "localhost"]
+ALLOWED_HOSTS = [
+    "liasecschmidt.com",
+    "www.liasecschmidt.com",
+    "82.29.174.7",
+    "127.0.0.1",
+    "localhost",
+]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://liasecschmidt.com",
+    "https://www.liasecschmidt.com",
+    "http://82.29.174.7",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
-    "http://82.29.174.7",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
