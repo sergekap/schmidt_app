@@ -3131,3 +3131,12 @@ body {
 
 /* conteneur de la table (déjà proposé) */
 .perf-table-wrap{ background:#2c3136; border:1px solid rgba(255,255,255,0.06); border-radius:6px; overflow:auto; max-height:420px; }
+
+
+/* Ne pas forcer les majuscules sur les titres de sections */
+.color-section-title,
+.section-title,
+.section-subtitle,
+.acc-title {
+  text-transform: none !important;
+}
