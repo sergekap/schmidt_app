@@ -24,19 +24,36 @@ document.addEventListener("DOMContentLoaded", function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function startCountdown() {
-    countdownValue = COUNTDOWN_DURATION;
+  // ==============================
+// Inactivité
+// ==============================
+let preCountdownTimer = null;   // <— NEW: interval avant le pop
+
+
+function startCountdown() {
+  countdownValue = COUNTDOWN_DURATION;
+  countdownElement.textContent = countdownValue;
+
+  // LOG au démarrage du modal
+  //console.log(`[inactivity] Modal ouvert — décompte ${countdownValue}s`);
+
+  countdownTimer = setInterval(() => {
+    countdownValue--;
     countdownElement.textContent = countdownValue;
-    countdownTimer = setInterval(() => {
-      countdownValue--;
-      countdownElement.textContent = countdownValue;
-      if (countdownValue <= 0) {
-        clearInterval(countdownTimer);
-        hideInactivityModal();
-        resetToInitialState();
-      }
-    }, 1000);
-  }
+
+    // LOG chaque seconde dans le modal
+    //console.log(`[inactivity] Modal — reste ${countdownValue}s`);
+
+    if (countdownValue <= 0) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+
+      //console.log("[inactivity] Modal terminé — retour à l'état initial");
+      hideInactivityModal();
+      resetToInitialState();
+    }
+  }, 1000);
+}
 
   function isInInitialState() {
     const facadesButton = document.querySelector('[data-section="facades"]');
@@ -56,12 +73,29 @@ document.addEventListener("DOMContentLoaded", function() {
     inactivityModal.classList.remove('active');
     if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
   }
-  function resetInactivityTimer() {
-    if (inactivityTimer) clearTimeout(inactivityTimer);
-    if (!inactivityModal.classList.contains('active')) {
-      inactivityTimer = setTimeout(showInactivityModal, INACTIVITY_DELAY);
-    }
+function resetInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  if (preCountdownTimer) { clearInterval(preCountdownTimer); preCountdownTimer = null; }
+
+  if (!inactivityModal.classList.contains('active')) {
+    // Programme le pop
+    inactivityTimer = setTimeout(showInactivityModal, INACTIVITY_DELAY);
+
+    // NEW: pré-compte à rebours en console avant l’ouverture du pop
+    let remaining = Math.ceil(INACTIVITY_DELAY / 1000);
+    //console.log(`[inactivity] Inactif — pop dans ${remaining}s`);
+    preCountdownTimer = setInterval(() => {
+      remaining--;
+      // LOG chaque seconde avant l'ouverture du modal
+      //console.log(`[inactivity] Pop d'inactivité dans ${remaining}s`);
+      if (remaining <= 0) {
+        clearInterval(preCountdownTimer);
+        preCountdownTimer = null;
+      }
+    }, 1000);
   }
+}
+
 
   continueBtn.addEventListener('click', () => { hideInactivityModal(); resetInactivityTimer(); });
   resetBtn.addEventListener('click',  () => { hideInactivityModal(); resetToInitialState(); resetInactivityTimer(); });
@@ -155,10 +189,33 @@ document.addEventListener("DOMContentLoaded", function() {
   window.addEventListener('scroll', requestScrollUpdate, { passive: true });
   window.addEventListener('touchmove', requestScrollUpdate, { passive: true });
   window.addEventListener('touchend',  requestScrollUpdate, { passive: true });
+// Bouton "remonter en haut"
+if (scrollToTopBtn) {
+  // Souris / tap
+  scrollToTopBtn.addEventListener('click', () => {
+    resetInactivityTimer();                              // <= compter comme activité
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
-  scrollToTopBtn.addEventListener('click', ()=> window.scrollTo({ top: 0, behavior: 'smooth' }));
-  scrollToTopBtn.addEventListener('touchstart', function(){ this.style.transform='translateY(-3px) scale(1.05)'; }, { passive:true });
-  scrollToTopBtn.addEventListener('touchend',   function(){ setTimeout(()=>{ this.style.transform=''; },150); }, { passive:true });
+  // Mobile : on compte aussi le toucher comme activité
+  scrollToTopBtn.addEventListener('touchstart', () => {
+    resetInactivityTimer();
+  }, { passive: true });
+
+  scrollToTopBtn.addEventListener('touchend', () => {
+    resetInactivityTimer();
+  }, { passive: true });
+
+  // Clavier (accessibilité)
+  scrollToTopBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      resetInactivityTimer();                            // <= activité au clavier
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+}
+
 
   function animateOnScroll() {
     const fadeElements = document.querySelectorAll('.fade-in');
