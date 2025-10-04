@@ -648,91 +648,95 @@ if (scrollToTopBtn) {
   });
 
   // ==============================
-  // Zoom/Pan plein écran
-  // ==============================
-  let currentZoom=1, currentPanX=0, currentPanY=0, startPointerDistance=0, startPanX=0, startPanY=0, isZooming=false, isPanning=false;
-  function applyTransform(img){ img.style.transform = `translate(${currentPanX}px, ${currentPanY}px) scale(${currentZoom})`; }
-  function resetZoomAndPan(img){ currentZoom=1; currentPanX=0; currentPanY=0; applyTransform(img); }
-  function setupFullscreenZoom(img){
-    img.addEventListener("wheel", e=>{
+// Plein écran  ZOOM (zoom/pinch/double-tap bloqués)
+// ==============================
+
+function applyTransform(img){ img.style.transform = ""; }
+function resetZoomAndPan(img){ img.style.transform = ""; }
+
+let gestureListenersBound = false;
+
+function setupFullscreenNoZoom(img){
+  img.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
+
+  img.addEventListener("touchstart", (e) => {
+    if (e.touches.length > 1) {
       e.preventDefault();
-      const scaleAmount = 0.1;
-      const rect = img.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      currentZoom += (e.deltaY < 0 ? scaleAmount : -scaleAmount);
-      currentZoom = Math.max(1, Math.min(currentZoom, 5));
-      currentPanX = mouseX - (mouseX * (currentZoom / (currentZoom - scaleAmount * (e.deltaY < 0 ? 1 : -1))));
-      currentPanY = mouseY - (mouseY * (currentZoom / (currentZoom - scaleAmount * (e.deltaY < 0 ? 1 : -1))));
-      applyTransform(img);
-    });
+      e.stopPropagation();
+    }
+  }, { passive: false });
 
-    img.addEventListener("touchstart", e=>{
-      if (e.touches.length === 2) {
-        isZooming = true;
-        startPointerDistance = Math.hypot(
-          e.touches[0].pageX - e.touches[1].pageX,
-          e.touches[0].pageY - e.touches[1].pageY
-        );
-        startPanX = currentPanX; startPanY = currentPanY;
-      } else if (e.touches.length === 1) {
-        isPanning = true;
-        startPanX = e.touches[0].clientX - currentPanX;
-        startPanY = e.touches[0].clientY - currentPanY;
-      }
-    }, { passive:false });
+  img.addEventListener("touchmove", (e) => {
+    if (e.touches.length > 1) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, { passive: false });
 
-    img.addEventListener("touchmove", e=>{
-      if (isZooming && e.touches.length === 2) {
-        e.preventDefault();
-        const d = Math.hypot(
-          e.touches[0].pageX - e.touches[1].pageX,
-          e.touches[0].pageY - e.touches[1].pageY
-        );
-        const scale = d / startPointerDistance;
-        currentZoom = Math.max(1, Math.min(currentZoom * scale, 5));
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        currentPanX = midX - (midX - startPanX) * scale;
-        currentPanY = midY - (midY - startPanY) * scale;
-        applyTransform(img);
-      } else if (isPanning && e.touches.length === 1) {
-        e.preventDefault();
-        currentPanX = e.touches[0].clientX - startPanX;
-        currentPanY = e.touches[0].clientY - startPanY;
-        applyTransform(img);
-      }
-    }, { passive:false });
+  let lastTouchEnd = 0;
+  img.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
 
-    img.addEventListener("touchend", ()=>{ isZooming=false; isPanning=false; });
+  if (!gestureListenersBound) {
+    const preventGesture = (e) => {
+      const allowBlock = (typeof isFullscreenMode !== "undefined") ? isFullscreenMode : true;
+      if (!allowBlock) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("gesturestart",  preventGesture, { passive: false });
+    document.addEventListener("gesturechange", preventGesture, { passive: false });
+    document.addEventListener("gestureend",    preventGesture, { passive: false });
+    gestureListenersBound = true;
   }
 
-  // Hook pour initialiser zoom/pan à chaque ouverture
-  const _openFullscreen = openFullscreen;
-  openFullscreen = function(imageSrc){
-    _openFullscreen(imageSrc);
-    const img = fullscreenModal?.querySelector(".fullscreen-image");
-    if (img) { resetZoomAndPan(img); setupFullscreenZoom(img); }
-  };
-  const _closeFullscreen = closeFullscreen;
-  closeFullscreen = function(){
-    const img = fullscreenModal?.querySelector(".fullscreen-image");
-    if (img) resetZoomAndPan(img);
-    _closeFullscreen();
-  };
+  img.style.touchAction = "manipulation";
+  // Pour tout couper : img.style.touchAction = "none";
 
-  // Utilitaires
-  function checkImageExists(url) {
-    return new Promise((resolve) => {
-      const i = new Image();
-      i.onload = () => resolve(true);
-      i.onerror = () => resolve(false);
-      i.src = url;
-      setTimeout(() => resolve(false), 3000);
-    });
+  img.style.cursor = "default";
+}
+
+// Hook pour initialiser (sans zoom) à chaque ouverture
+const _openFullscreen = openFullscreen;
+openFullscreen = function(imageSrc){
+  _openFullscreen(imageSrc);
+  const scope = (typeof fullscreenModal !== "undefined" && fullscreenModal) ? fullscreenModal : document;
+  const img = scope.querySelector?.(".fullscreen-image");
+  if (img) {
+    resetZoomAndPan(img);
+    setupFullscreenNoZoom(img);
   }
+};
 
-  fixImageSources();
+const _closeFullscreen = closeFullscreen;
+closeFullscreen = function(){
+  const scope = (typeof fullscreenModal !== "undefined" && fullscreenModal) ? fullscreenModal : document;
+  const img = scope.querySelector?.(".fullscreen-image");
+  if (img) resetZoomAndPan(img);
+  _closeFullscreen();
+};
+
+// Utilitaires
+function checkImageExists(url) {
+  return new Promise((resolve) => {
+    const i = new Image();
+    i.onload = () => resolve(true);
+    i.onerror = () => resolve(false);
+    i.src = url;
+    setTimeout(() => resolve(false), 3000);
+  });
+}
+
+fixImageSources();
 });
 
 // ============= Performance tracking =============
