@@ -781,10 +781,18 @@ if (scrollToTopBtn) {
   };
 
   // section active (boutons du header)
-  document.body.addEventListener("click", (e)=>{
-    const btn = e.target.closest('.nav-button[data-section]');
-    if(btn){ PERF.activeSection = btn.dataset.section; }
-  }, true);
+  document.body.addEventListener("click", (e) => {
+  const btn = e.target.closest('.nav-button[data-section]');
+  if (btn) {
+    // Met à jour la section active
+    PERF.activeSection = btn.dataset.section;
+
+    // Démarre la session si ce n’est pas déjà fait
+    PERF.startIfNeeded();
+    PERF.track("tab", { section: btn.dataset.section });
+  }
+}, true);
+
 
   // clic sur une bulle couleur
   document.body.addEventListener("click", (e)=>{
@@ -793,7 +801,7 @@ if (scrollToTopBtn) {
     PERF.track("bubble", {color_id: parseInt(bub.dataset.colorId)});
   }, true);
 
-  // clic sur une image du carrousel (si balisage différent, adapte le sélecteur)
+  // clic sur une image du carrousel (si balisage différent)
   document.body.addEventListener("click", (e)=>{
     const img = e.target.closest('.carousel-image[data-color-id]');
     if(!img) return;
