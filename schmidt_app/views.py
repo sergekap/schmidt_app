@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 from typing import List
 
@@ -14,6 +15,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.crypto import get_random_string
+from django.utils.dateparse import parse_datetime
 from django.utils.encoding import force_str, force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_protect
@@ -26,6 +28,8 @@ from .models import ColorGroup, Color, ColorImage, Section
 # ---------------------------
 # Helpers généraux
 # ---------------------------
+
+
 
 def _get_section(request):
     s = (request.GET.get('section') or request.POST.get('section') or '').strip().lower()
@@ -685,29 +689,50 @@ def perf_session_start(request):
     )
     return JsonResponse({"session_id": str(s.id)})
 
+def _from_ms(ts_ms):
+    try:
+        # ts_ms peut être str ou int
+        ts = int(ts_ms) / 1000.0
+        # crée un datetime aware en UTC
+        return dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc)
+    except Exception:
+        return None
 @csrf_exempt
 @require_POST
 def perf_session_stop(request):
-    """
-    Body: {"session_id": "..."} -> { "duration_seconds": 123 }
-    Termine la session.
-    """
     try:
         data = json.loads(request.body or "{}")
         sid = data.get("session_id")
-        if not sid: return HttpResponseBadRequest("session_id manquant")
+        if not sid:
+            return HttpResponseBadRequest("session_id manquant")
     except json.JSONDecodeError:
         return HttpResponseBadRequest("JSON invalide")
 
-    try:
-        s = UsageSession.objects.get(pk=sid, ended_at__isnull=True)
-    except UsageSession.DoesNotExist:
-        # idempotent: si déjà fermée, renvoyer ok avec 0/valeur actuelle
-        s = UsageSession.objects.filter(pk=sid).first()
-        return JsonResponse({"duration_seconds": s.duration_seconds if s else 0})
+    s = UsageSession.objects.filter(pk=sid).first()
+    if not s:
+        return JsonResponse({"duration_seconds": 0})
 
-    s.ended_at = timezone.now()
-    s.save(update_fields=["ended_at"])
+    # Fin côté client (début d'idle)
+    ended_client = None
+    if data.get("ended_at_client_ts") is not None:
+        ended_client = _from_ms(data["ended_at_client_ts"])
+    elif data.get("ended_at_client_iso"):
+        ended_client = parse_datetime(data["ended_at_client_iso"])
+        if ended_client and timezone.is_naive(ended_client):
+            ended_client = timezone.make_aware(ended_client)
+    if ended_client:
+        s.ended_at_client = ended_client
+
+    # Idle à retrancher (ms)
+    if isinstance(data.get("subtract_idle_ms"), int):
+        s.idle_ms = max(int(data["subtract_idle_ms"]), 0)
+
+    # Marque aussi la fin serveur si absente
+    if s.ended_at is None:
+        s.ended_at = timezone.now()
+
+    s.save(update_fields=["ended_at", "ended_at_client", "idle_ms"])
+
     return JsonResponse({"duration_seconds": s.duration_seconds})
 
 # ---------- Tracking des clics ----------
@@ -766,24 +791,20 @@ def perf_stats(request):
       "sessions": 42,
       "total_duration_seconds": 1234,
       "avg_duration_seconds": 29,
-      "sections": {
-        "facades": {"elements": 10, "clicks": 123},
-        "plans":   {"elements":  8, "clicks":  45},
-        ...
-      }
+      "sections": { ... }
     }
     """
-    # sessions
-    sessions_qs = UsageSession.objects.exclude(ended_at__isnull=True)
-    sessions_count = sessions_qs.count()
-    total_duration = sum(s.duration_seconds for s in sessions_qs)
+    sessions = list(UsageSession.objects.exclude(ended_at__isnull=True))
+    sessions_count = len(sessions)
+
+    total_duration = sum(s.duration_seconds for s in sessions)
     avg_duration = int(total_duration / sessions_count) if sessions_count else 0
 
-    # par section
     out = {}
     for sec_value, _sec_label in Section.choices:
         elements = Color.objects.filter(group__section=sec_value).count()
-        clicks = Color.objects.filter(group__section=sec_value).aggregate(n=Sum("clicks"))["n"] or 0
+        clicks = (Color.objects.filter(group__section=sec_value)
+                  .aggregate(n=Sum("clicks"))["n"] or 0)
         out[sec_value] = {"elements": elements, "clicks": clicks}
 
     return JsonResponse({
@@ -792,6 +813,7 @@ def perf_stats(request):
         "avg_duration_seconds": avg_duration,
         "sections": out,
     })
+
 
 @require_GET
 def perf_breakdown(request, section: str):

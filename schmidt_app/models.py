@@ -1,4 +1,6 @@
 # schmidt_app/models.py
+import datetime
+
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Lower
@@ -218,21 +220,59 @@ from django.utils import timezone
 
 class UsageSession(models.Model):
     """
-    Une session commence au PREMIER clic (dans l’interface /) et se termine
-    quand on revient “Home” (logo / reset / inactivité).
+    Une session commence au PREMIER clic (dans l’interface /)
+    et se termine quand on revient “Home” (logo / reset / inactivité)
+    ou quand l'onglet est fermé.
+    - ended_at : fin côté serveur (now au moment du stop).
+    - ended_at_client : fin côté client (= début d'inactivité constatée par le front).
+    - idle_ms : temps d'inactivité cumulé à retrancher (en millisecondes).
+    La durée effective prend le MIN(ended_at, ended_at_client) et soustrait idle_ms.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     started_at = models.DateTimeField(auto_now_add=True, db_index=True)
     ended_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    ended_at_client = models.DateTimeField(null=True, blank=True)
+    idle_ms = models.PositiveIntegerField(default=0)
+
     clicks_count = models.PositiveIntegerField(default=0)
     client_id = models.CharField(max_length=64, blank=True)  # id anonyme (localStorage)
     user_agent = models.CharField(max_length=255, blank=True)
     remote_addr = models.GenericIPAddressField(null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["started_at"]),
+            models.Index(fields=["ended_at"]),
+        ]
+
+    def __str__(self):
+        return f"UsageSession({self.id})"
+
     @property
-    def duration_seconds(self):
-        end = self.ended_at or timezone.now()
-        return int((end - self.started_at).total_seconds())
+    def effective_end(self) -> datetime:
+        """
+        On prend la fin la plus tôt pour ne pas compter l'inactivité.
+        Priorité :
+          - si ended_at_client ET ended_at : min des deux
+          - sinon l'un des deux
+          - sinon maintenant
+        """
+        if self.ended_at_client and self.ended_at:
+            return min(self.ended_at, self.ended_at_client)
+        return self.ended_at_client or self.ended_at or timezone.now()
+
+    @property
+    def duration_seconds(self) -> int:
+        """
+        Durée effective en secondes :
+          max( (effective_end - started_at) - idle_ms, 0 )
+        """
+        start = self.started_at or timezone.now()
+        end = self.effective_end
+        base_sec = max((end - start).total_seconds(), 0)
+        return max(int(base_sec - (self.idle_ms or 0) / 1000), 0)
 
 class ClickEvent(models.Model):
     """

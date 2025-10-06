@@ -2,92 +2,86 @@ document.addEventListener("DOMContentLoaded", function() {
   // Forcer le scroll en haut de la page immédiatement
   window.scrollTo(0, 0);
 
-  // ==============================
-  // Inactivité
-  // ==============================
-  let inactivityTimer = null;
-  let countdownTimer = null;
-  let countdownValue = 15;
-  const INACTIVITY_DELAY = 60000; // 1 min
-  const COUNTDOWN_DURATION = 15;  // 15 s
-
-  const inactivityModal   = document.getElementById('inactivityModal');
-  const countdownElement  = document.getElementById('countdownTimer');
-  const continueBtn       = document.getElementById('continueBtn');
-  const resetBtn          = document.getElementById('resetBtn');
-
-  function resetToInitialState() {
-    if (carouselModal && carouselModal.classList.contains('active')) closeCarousel();
-    if (isFullscreenMode) closeFullscreen();
-    const facadesButton = document.querySelector('[data-section="facades"]');
-    if (facadesButton) selectButton(facadesButton);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  // ==============================
+ // ==============================
 // Inactivité
 // ==============================
-let preCountdownTimer = null;   // <— NEW: interval avant le pop
+let inactivityTimer = null;
+let countdownTimer = null;
+let countdownValue = 15;
+const INACTIVITY_DELAY = 60000; // 1 min
+const COUNTDOWN_DURATION = 15;  // 15 s
 
+const inactivityModal   = document.getElementById('inactivityModal');
+const countdownElement  = document.getElementById('countdownTimer');
+const continueBtn       = document.getElementById('continueBtn');
+const resetBtn          = document.getElementById('resetBtn');
+
+// NEW: flag — a-t-on eu AU MOINS une interaction depuis le chargement ?
+let hasInteracted = false;
+const markInteracted = () => { hasInteracted = true; };
+
+function resetToInitialState() {
+  if (carouselModal && carouselModal.classList.contains('active')) closeCarousel();
+  if (isFullscreenMode) closeFullscreen();
+  const facadesButton = document.querySelector('[data-section="facades"]');
+  if (facadesButton) selectButton(facadesButton);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+let preCountdownTimer = null;
 
 function startCountdown() {
   countdownValue = COUNTDOWN_DURATION;
   countdownElement.textContent = countdownValue;
 
-  // LOG au démarrage du modal
-  //console.log(`[inactivity] Modal ouvert — décompte ${countdownValue}s`);
-
   countdownTimer = setInterval(() => {
     countdownValue--;
     countdownElement.textContent = countdownValue;
-
-    // LOG chaque seconde dans le modal
-    //console.log(`[inactivity] Modal — reste ${countdownValue}s`);
 
     if (countdownValue <= 0) {
       clearInterval(countdownTimer);
       countdownTimer = null;
 
-      //console.log("[inactivity] Modal terminé — retour à l'état initial");
       hideInactivityModal();
+      // On arrête la session: le PERF.stop utilisera ended_at_client_ts (= début d’idle)
+      window.PERF?.stop({ reason: "idle_timeout" });
       resetToInitialState();
     }
   }, 1000);
 }
 
-  function isInInitialState() {
-    const facadesButton = document.querySelector('[data-section="facades"]');
-    const isFacadesActive = facadesButton && facadesButton.classList.contains('active');
-    const isAtTop = window.pageYOffset <= 50;
-    const isCarouselClosed = !carouselModal || !carouselModal.classList.contains('active');
-    const isFullscreenClosed = !isFullscreenMode;
-    return isFacadesActive && isAtTop && isCarouselClosed && isFullscreenClosed;
-  }
+function isInInitialState() {
+  const facadesButton = document.querySelector('[data-section="facades"]');
+  const isFacadesActive = facadesButton && facadesButton.classList.contains('active');
+  const isAtTop = window.pageYOffset <= 50;
+  const isCarouselClosed = !carouselModal || !carouselModal.classList.contains('active');
+  const isFullscreenClosed = !isFullscreenMode;
+  return isFacadesActive && isAtTop && isCarouselClosed && isFullscreenClosed;
+}
 
-  function showInactivityModal() {
-    if (isInInitialState()) { resetInactivityTimer(); return; }
-    inactivityModal.classList.add('active');
-    startCountdown();
-  }
-  function hideInactivityModal() {
-    inactivityModal.classList.remove('active');
-    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-  }
+function showInactivityModal() {
+  if (isInInitialState() && !hasInteracted) { resetInactivityTimer(); return; }
+  window.PERF?.markIdleStart(INACTIVITY_DELAY);
+  inactivityModal.classList.add('active');
+  startCountdown();
+}
+
+
+function hideInactivityModal() {
+  inactivityModal.classList.remove('active');
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+}
+
 function resetInactivityTimer() {
   if (inactivityTimer) clearTimeout(inactivityTimer);
   if (preCountdownTimer) { clearInterval(preCountdownTimer); preCountdownTimer = null; }
 
   if (!inactivityModal.classList.contains('active')) {
-    // Programme le pop
     inactivityTimer = setTimeout(showInactivityModal, INACTIVITY_DELAY);
 
-    // NEW: pré-compte à rebours en console avant l’ouverture du pop
     let remaining = Math.ceil(INACTIVITY_DELAY / 1000);
-    //console.log(`[inactivity] Inactif — pop dans ${remaining}s`);
     preCountdownTimer = setInterval(() => {
       remaining--;
-      // LOG chaque seconde avant l'ouverture du modal
-      //console.log(`[inactivity] Pop d'inactivité dans ${remaining}s`);
       if (remaining <= 0) {
         clearInterval(preCountdownTimer);
         preCountdownTimer = null;
@@ -96,178 +90,175 @@ function resetInactivityTimer() {
   }
 }
 
+// Boutons du modal
+continueBtn.addEventListener('click', () => { markInteracted();  window.PERF?.clearIdle(); hideInactivityModal(); resetInactivityTimer(); });
+resetBtn.addEventListener('click',  () => { markInteracted();window.PERF?.clearIdle(); hideInactivityModal(); resetToInitialState(); resetInactivityTimer(); });
 
-  continueBtn.addEventListener('click', () => { hideInactivityModal(); resetInactivityTimer(); });
-  resetBtn.addEventListener('click',  () => { hideInactivityModal(); resetToInitialState(); resetInactivityTimer(); });
+// Sépare activité (reset timer) et interaction (marque + reset)
+const activityEvents = ['mousemove','mousedown','mouseup','touchmove','touchend','resize'];
+activityEvents.forEach(t => document.addEventListener(t, resetInactivityTimer, { passive: true }));
 
-  const activityEvents = [
-    'mousedown','mousemove','mouseup','click',
-    'touchstart','touchmove','touchend',
-    'scroll','wheel','keydown','keyup'
-  ];
-  activityEvents.forEach(t => document.addEventListener(t, resetInactivityTimer, { passive: true }));
-  resetInactivityTimer();
+const interactionEvents = ['click','touchstart','wheel','scroll','keydown'];
+interactionEvents.forEach(t => document.addEventListener(t, () => { markInteracted(); resetInactivityTimer(); }, { passive: true }));
 
-  // ==============================
-  // Scroll & navigation
-  // ==============================
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  if (isTouchDevice) {
-    document.documentElement.style.scrollBehavior = 'auto';
-    let touchStartY = 0; let isScrollingTouch = false;
-    document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; isScrollingTouch = false; }, { passive: true });
-    document.addEventListener('touchmove',  e => {
-      if (!isScrollingTouch) {
-        const deltaY = touchStartY - e.touches[0].clientY;
-        if (Math.abs(deltaY) > 10) isScrollingTouch = true;
-      }
-    }, { passive: true });
-    let scrollTimeout;
-    document.addEventListener('touchmove', () => {
-      document.body.classList.add('scrolling');
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => document.body.classList.remove('scrolling'), 150);
-    }, { passive: true });
-  }
+resetInactivityTimer();
 
-  const navButtons          = document.querySelectorAll(".nav-button");
-  const facadesSubsections  = document.querySelector(".facades-subsections");
-  const plansSubsections    = document.querySelector(".plans-subsections");
-  const espacesSubsections  = document.querySelector(".espaces-subsections");
-  const ambiancesSubsections= document.querySelector(".ambiances-subsections");
-  const scrollToTopBtn      = document.getElementById("scrollToTop");
-  const scrollIndicator     = document.getElementById("scrollIndicator");
 
-  function selectButton(selectedButton) {
-    navButtons.forEach(b => b.classList.remove("active"));
-    selectedButton.classList.add("active");
-    const section = selectedButton.getAttribute("data-section");
-    facadesSubsections.classList.remove("active");
-    plansSubsections.classList.remove("active");
-    espacesSubsections.classList.remove("active");
-    ambiancesSubsections.classList.remove("active");
-    if (section === "facades")  facadesSubsections.classList.add("active");
-    if (section === "plans")    plansSubsections.classList.add("active");
-    if (section === "espaces")  espacesSubsections.classList.add("active");
-    if (section === "ambiances")ambiancesSubsections.classList.add("active");
-    resetAnimations();
-  }
+// ==============================
+// Scroll & navigation
+// ==============================
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouchDevice) {
+  document.documentElement.style.scrollBehavior = 'auto';
+  let touchStartY = 0; let isScrollingTouch = false;
+  document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; isScrollingTouch = false; }, { passive: true });
+  document.addEventListener('touchmove',  e => {
+    if (!isScrollingTouch) {
+      const deltaY = touchStartY - e.touches[0].clientY;
+      if (Math.abs(deltaY) > 10) isScrollingTouch = true;
+    }
+  }, { passive: true });
+  let scrollTimeout;
+  document.addEventListener('touchmove', () => {
+    document.body.classList.add('scrolling');
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => document.body.classList.remove('scrolling'), 150);
+  }, { passive: true });
+}
 
-  navButtons.forEach(button => {
-    button.addEventListener("click", function() {
-      selectButton(this);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    button.addEventListener("keydown", function(e) {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        selectButton(this);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    });
-  });
+const navButtons          = document.querySelectorAll(".nav-button");
+const facadesSubsections  = document.querySelector(".facades-subsections");
+const plansSubsections    = document.querySelector(".plans-subsections");
+const espacesSubsections  = document.querySelector(".espaces-subsections");
+const ambiancesSubsections= document.querySelector(".ambiances-subsections");
+const scrollToTopBtn      = document.getElementById("scrollToTop");
+const scrollIndicator     = document.getElementById("scrollIndicator");
 
-  const facadesButton = document.querySelector('[data-section="facades"]');
-  if (facadesButton && !facadesButton.classList.contains("active")) selectButton(facadesButton);
+function selectButton(selectedButton) {
+  navButtons.forEach(b => b.classList.remove("active"));
+  selectedButton.classList.add("active");
+  const section = selectedButton.getAttribute("data-section");
+  facadesSubsections.classList.remove("active");
+  plansSubsections.classList.remove("active");
+  espacesSubsections.classList.remove("active");
+  ambiancesSubsections.classList.remove("active");
+  if (section === "facades")  facadesSubsections.classList.add("active");
+  if (section === "plans")    plansSubsections.classList.add("active");
+  if (section === "espaces")  espacesSubsections.classList.add("active");
+  if (section === "ambiances")ambiancesSubsections.classList.add("active");
+  resetAnimations();
+}
 
-  let ticking = false; let lastScrollTime = 0; const SCROLL_THROTTLE = 16;
-  function updateScrollElements() {
-    const now = performance.now();
-    if (now - lastScrollTime < SCROLL_THROTTLE) { ticking = false; return; }
-    lastScrollTime = now;
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-    const scrollPercent = (scrollTop / scrollHeight) * 100;
-    scrollIndicator.style.width = scrollPercent + '%';
-    if (scrollTop > 300) scrollToTopBtn.classList.add('visible');
-    else scrollToTopBtn.classList.remove('visible');
-    animateOnScroll();
-    ticking = false;
-  }
-  function requestScrollUpdate() { if (!ticking) { requestAnimationFrame(updateScrollElements); ticking = true; } }
-
-  window.addEventListener('scroll', requestScrollUpdate, { passive: true });
-  window.addEventListener('touchmove', requestScrollUpdate, { passive: true });
-  window.addEventListener('touchend',  requestScrollUpdate, { passive: true });
-// Bouton "remonter en haut"
-if (scrollToTopBtn) {
-  // Souris / tap
-  scrollToTopBtn.addEventListener('click', () => {
-    resetInactivityTimer();                              // <= compter comme activité
+navButtons.forEach(button => {
+  button.addEventListener("click", function() {
+    markInteracted(); // NEW
+    selectButton(this);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+  button.addEventListener("keydown", function(e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      markInteracted(); // NEW
+      selectButton(this);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+});
 
-  // Mobile : on compte aussi le toucher comme activité
-  scrollToTopBtn.addEventListener('touchstart', () => {
+const facadesButton = document.querySelector('[data-section="facades"]');
+if (facadesButton && !facadesButton.classList.contains("active")) selectButton(facadesButton);
+
+let ticking = false; let lastScrollTime = 0; const SCROLL_THROTTLE = 16;
+function updateScrollElements() {
+  const now = performance.now();
+  if (now - lastScrollTime < SCROLL_THROTTLE) { ticking = false; return; }
+  lastScrollTime = now;
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const scrollPercent = (scrollTop / scrollHeight) * 100;
+  scrollIndicator.style.width = scrollPercent + '%';
+  if (scrollTop > 300) scrollToTopBtn.classList.add('visible');
+  else scrollToTopBtn.classList.remove('visible');
+  animateOnScroll();
+  ticking = false;
+}
+function requestScrollUpdate() { if (!ticking) { requestAnimationFrame(updateScrollElements); ticking = true; } }
+
+window.addEventListener('scroll', requestScrollUpdate, { passive: true });
+window.addEventListener('touchmove', requestScrollUpdate, { passive: true });
+window.addEventListener('touchend',  requestScrollUpdate, { passive: true });
+
+// Bouton "remonter en haut"
+if (scrollToTopBtn) {
+  scrollToTopBtn.addEventListener('click', () => {
+    markInteracted();
     resetInactivityTimer();
-  }, { passive: true });
-
-  scrollToTopBtn.addEventListener('touchend', () => {
-    resetInactivityTimer();
-  }, { passive: true });
-
-  // Clavier (accessibilité)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  scrollToTopBtn.addEventListener('touchstart', () => { markInteracted(); resetInactivityTimer(); }, { passive: true });
+  scrollToTopBtn.addEventListener('touchend',   () => { markInteracted(); resetInactivityTimer(); }, { passive: true });
   scrollToTopBtn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      resetInactivityTimer();                            // <= activité au clavier
+      markInteracted();
+      resetInactivityTimer();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   });
 }
 
-
-  function animateOnScroll() {
-    const fadeElements = document.querySelectorAll('.fade-in');
-    const windowHeight = window.innerHeight;
-    const scrollTop = window.pageYOffset;
-    fadeElements.forEach(el => {
-      const top = el.offsetTop, bottom = top + el.offsetHeight;
-      if ((top < scrollTop + windowHeight - 100) && (bottom > scrollTop)) el.classList.add('visible');
-    });
-  }
-  function resetAnimations() {
-    document.querySelectorAll('.fade-in').forEach(el => el.classList.remove('visible'));
-    setTimeout(animateOnScroll, 100);
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'ArrowUp' && e.ctrlKey)      { e.preventDefault(); window.scrollBy({ top: -100, behavior: 'smooth' }); }
-    else if (e.key === 'ArrowDown' && e.ctrlKey){ e.preventDefault(); window.scrollBy({ top: 100, behavior: 'smooth' }); }
-    else if (e.key === 'Home' && e.ctrlKey)     { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-    else if (e.key === 'End' && e.ctrlKey)      { e.preventDefault(); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }
+function animateOnScroll() {
+  const fadeElements = document.querySelectorAll('.fade-in');
+  const windowHeight = window.innerHeight;
+  const scrollTop = window.pageYOffset;
+  fadeElements.forEach(el => {
+    const top = el.offsetTop, bottom = top + el.offsetHeight;
+    if ((top < scrollTop + windowHeight - 100) && (bottom > scrollTop)) el.classList.add('visible');
   });
-
-  let isScrollingWheel = false;
-  window.addEventListener('wheel', () => {
-    if (!isScrollingWheel) { isScrollingWheel = true; setTimeout(()=>{ isScrollingWheel = false; }, 50); }
-  }, { passive: true });
-
-  window.addEventListener('resize', requestScrollUpdate);
-
+}
+function resetAnimations() {
+  document.querySelectorAll('.fade-in').forEach(el => el.classList.remove('visible'));
   setTimeout(animateOnScroll, 100);
-  window.scrollTo(0,0);
-  window.addEventListener('beforeunload', ()=> window.scrollTo(0,0));
-  window.addEventListener('pageshow',      ()=> window.scrollTo(0,0));
+}
 
-  function fixImageSources() {
-    const bubbleImages = document.querySelectorAll('.bubble-image');
-    const exts = ['.jpeg', '.jpg', '.png'];
-    bubbleImages.forEach(async (img) => {
-      const originalSrc = img.src;
-      const ok = await checkImageExists(originalSrc);
-      if (ok) return;
-      const url = new URL(originalSrc, window.location.origin);
-      const parts = url.pathname.split('/');
-      const file = parts.pop();
-      const dir = parts.join('/');
-      const base = file.substring(0, file.lastIndexOf('.'));
-      for (const ext of exts) {
-        const alt = `${dir}/${base}${ext}`;
-        if (await checkImageExists(alt)) { img.src = alt; break; }
-      }
-    });
-  }
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowUp' && e.ctrlKey)      { e.preventDefault(); window.scrollBy({ top: -100, behavior: 'smooth' }); }
+  else if (e.key === 'ArrowDown' && e.ctrlKey){ e.preventDefault(); window.scrollBy({ top: 100, behavior: 'smooth' }); }
+  else if (e.key === 'Home' && e.ctrlKey)     { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  else if (e.key === 'End' && e.ctrlKey)      { e.preventDefault(); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }
+});
+
+let isScrollingWheel = false;
+window.addEventListener('wheel', () => {
+  if (!isScrollingWheel) { isScrollingWheel = true; setTimeout(()=>{ isScrollingWheel = false; }, 50); }
+}, { passive: true });
+
+window.addEventListener('resize', requestScrollUpdate);
+
+setTimeout(animateOnScroll, 100);
+window.scrollTo(0,0);
+window.addEventListener('beforeunload', ()=> window.scrollTo(0,0));
+window.addEventListener('pageshow',      ()=> window.scrollTo(0,0));
+
+function fixImageSources() {
+  const bubbleImages = document.querySelectorAll('.bubble-image');
+  const exts = ['.jpeg', '.jpg', '.png'];
+  bubbleImages.forEach(async (img) => {
+    const originalSrc = img.src;
+    const ok = await checkImageExists(originalSrc);
+    if (ok) return;
+    const url = new URL(originalSrc, window.location.origin);
+    const parts = url.pathname.split('/');
+    const file = parts.pop();
+    const dir = parts.join('/');
+    const base = file.substring(0, file.lastIndexOf('.'));
+    for (const ext of exts) {
+      const alt = `${dir}/${base}${ext}`;
+      if (await checkImageExists(alt)) { img.src = alt; break; }
+    }
+  });
+}
+
 
   // ==============================
   // Helpers pour comparer des URLs et virer la présentation
@@ -744,26 +735,48 @@ fixImageSources();
     sessionId: null,
     activeSection: "facades",
 
-    // Récupère le CSRF token depuis le cookie
+    _idleStartTs: null,
+    /**
+     * Appelé quand le pop d'inactivité s'ouvre.
+     * @param {number} inactivityDelayMs - ex: 60000
+     */
+    markIdleStart(inactivityDelayMs){
+      const delay = typeof inactivityDelayMs === "number" ? inactivityDelayMs : 0;
+      this._idleStartTs = Date.now() - delay;
+    },
+    /** Appelé dès que l'utilisateur reprend (ferme le pop, clique "Continuer", etc.) */
+    clearIdle(){
+      this._idleStartTs = null;
+    },
+
+    _getEffectiveEndTs(){
+      return this._idleStartTs ? this._idleStartTs : Date.now();
+    },
+
     get csrftoken(){
       const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
       return m ? m[2] : "";
     },
 
-    // Démarre une session si besoin
     async startIfNeeded(){
       if (this.sessionId) return;
       const clientId = localStorage.getItem("client_id") || (Math.random().toString(36).slice(2));
       localStorage.setItem("client_id", clientId);
 
-      const r = await fetch("/api/perf/session-start/", {
-        method: "POST",
-        headers: {
-          "Content-Type":"application/json",
-          "X-CSRFToken": this.csrftoken
-        },
-        body: JSON.stringify({client_id: clientId})
-      });
+      let r;
+      try{
+        r = await fetch("/api/perf/session-start/", {
+          method: "POST",
+          headers: {
+            "Content-Type":"application/json",
+            "X-CSRFToken": this.csrftoken
+          },
+          body: JSON.stringify({ client_id: clientId })
+        });
+      }catch(err){
+        console.error("Erreur réseau session-start:", err);
+        return;
+      }
 
       if (!r.ok) {
         console.error("Erreur lors du démarrage de session:", r.status);
@@ -774,9 +787,15 @@ fixImageSources();
       this.sessionId = j.session_id;
     },
 
-    // Arrête la session
+    // Arrête la session (en soustrayant l'inactivité si présente)
     async stop(opts={}){
       if(!this.sessionId) return;
+
+      // Calcule les champs d'ajustement
+      const now = Date.now();
+      const effectiveEnd = this._getEffectiveEndTs(); // exclut l'inactivité
+      const subtractIdleMs = this._idleStartTs ? (now - this._idleStartTs) : 0;
+
       try{
         await fetch("/api/perf/session-stop/", {
           method: "POST",
@@ -784,12 +803,19 @@ fixImageSources();
             "Content-Type":"application/json",
             "X-CSRFToken": this.csrftoken
           },
-          body: JSON.stringify({session_id: this.sessionId, ...opts})
+          body: JSON.stringify({
+            session_id: this.sessionId,
+            ended_at_client_ts: effectiveEnd,
+            ended_at_client_iso: new Date(effectiveEnd).toISOString(),
+            subtract_idle_ms: subtractIdleMs,
+            ...opts
+          })
         });
       } catch(err){
         console.warn("Erreur lors de l'arrêt de session:", err);
       } finally {
         this.sessionId = null;
+        this._idleStartTs = null;
       }
     },
 
@@ -797,9 +823,13 @@ fixImageSources();
     async track(action, payload){
       await this.startIfNeeded();
       if (!this.sessionId) return;
-      const body = Object.assign({session_id: this.sessionId, action, section: this.activeSection}, payload||{});
 
-      // Fire and forget
+      const body = Object.assign({
+        session_id: this.sessionId,
+        action,
+        section: this.activeSection
+      }, payload || {});
+
       fetch("/api/perf/track/", {
         method: "POST",
         headers: {
@@ -828,7 +858,7 @@ fixImageSources();
     const bub = e.target.closest('.bubble[data-color-id]');
     if(!bub) return;
     PERF.startIfNeeded();
-    PERF.track("bubble", {color_id: parseInt(bub.dataset.colorId)});
+    PERF.track("bubble", { color_id: parseInt(bub.dataset.colorId) });
   }, true);
 
   // clic sur une image du carrousel
@@ -837,22 +867,25 @@ fixImageSources();
     if(!img) return;
     const cid = img.dataset.colorId ? parseInt(img.dataset.colorId) : null;
     PERF.startIfNeeded();
-    PERF.track("image", {color_id: cid});
+    PERF.track("image", { color_id: cid });
   }, true);
 
   // retour "Home" = fin de session
   const stopSelectors = [".logo-container", "#resetBtn"];
   document.body.addEventListener("click", (e)=>{
     if (stopSelectors.some(sel => e.target.closest(sel))) {
-      PERF.stop();
+      PERF.stop({ reason: "user_reset" });
     }
   }, true);
 
-
-
-
   // sécurité : si on ferme l’onglet
-  window.addEventListener("beforeunload", ()=>{ PERF.stop(); });
+  window.addEventListener("beforeunload", ()=>{
+    // Le backend utilisera ended_at_client_ts (si _idleStartTs existe) pour
+    // ne pas compter l'inactivité dans la durée.
+    PERF.stop({ reason: "beforeunload" });
+  });
 
+  window.PERF = PERF;
 })();
+
 
