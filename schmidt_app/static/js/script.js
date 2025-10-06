@@ -731,7 +731,7 @@ fixImageSources();
 });
 // ============= Performance tracking =============
 (function () {
-  // Évite d'attacher 2 fois (ex: hot reload, import doublé, etc.)
+  // Empêche double installation (hot reload, script inclus deux fois…)
   if (window.__PERF_INSTALLED__) return;
   window.__PERF_INSTALLED__ = true;
 
@@ -740,15 +740,18 @@ fixImageSources();
     activeSection: "facades",
     _idleStartTs: null,
 
-    // --- verrou anti-double démarrage ---
+    // anti-race pour le démarrage
     _startInFlight: null,
 
-    // ----- Inactivité -----
+    // ----- Inactivité (pilotée par ta pop) -----
     markIdleStart(inactivityDelayMs) {
       const delay = typeof inactivityDelayMs === "number" ? inactivityDelayMs : 0;
+      // le début d’inactivité = maintenant - délai d’inactivité
       this._idleStartTs = Date.now() - delay;
     },
-    clearIdle() { this._idleStartTs = null; },
+    clearIdle() {
+      this._idleStartTs = null;
+    },
 
     // ----- Utils -----
     get csrftoken() {
@@ -756,46 +759,43 @@ fixImageSources();
       return m ? m[2] : "";
     },
 
-    // ----- Start avec verrou anti-race -----
+    // ----- Start : une seule fois par onglet -----
     async startIfNeeded() {
-      // 1) reprendre session de l'onglet si dispo
+      // reprendre une session existante de l’onglet si dispo
       if (!this.sessionId) this.sessionId = sessionStorage.getItem("perf_session_id");
       if (this.sessionId) return;
 
-      // 2) si un démarrage est déjà en cours, on attend la même promesse
-      if (this._startInFlight) {
-        await this._startInFlight;
-        return;
-      }
+      // éviter doublons pendant une rafale de clics
+      if (this._startInFlight) { await this._startInFlight; return; }
 
-      // 3) sinon on crée la promesse de démarrage (verrou)
       this._startInFlight = (async () => {
         const clientId =
           localStorage.getItem("client_id") || Math.random().toString(36).slice(2);
         localStorage.setItem("client_id", clientId);
 
-        const r = await fetch("/api/perf/session-start/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-CSRFToken": this.csrftoken },
-          body: JSON.stringify({ client_id: clientId }),
-        });
-        if (!r.ok) {
-          console.error("Erreur start session:", r.status);
-          return;
+        try {
+          const r = await fetch("/api/perf/session-start/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": this.csrftoken,
+            },
+            body: JSON.stringify({ client_id: clientId }),
+          });
+          if (!r.ok) { console.error("Erreur start session:", r.status); return; }
+          const j = await r.json();
+          this.sessionId = j.session_id || null;
+          if (this.sessionId) sessionStorage.setItem("perf_session_id", this.sessionId);
+        } catch (err) {
+          console.error("Erreur réseau session-start:", err);
         }
-        const j = await r.json();
-        this.sessionId = j.session_id || null;
-        if (this.sessionId) sessionStorage.setItem("perf_session_id", this.sessionId);
       })();
 
-      try {
-        await this._startInFlight;
-      } finally {
-        this._startInFlight = null; // lève le verrou dans tous les cas
-      }
+      try { await this._startInFlight; }
+      finally { this._startInFlight = null; }
     },
 
-    // ----- Stop (idempotent + fiable en fermeture d’onglet) -----
+    // ----- Stop : appelé UNIQUEMENT par la pop d’inactivité ou reset/logo -----
     async stop(opts = {}) {
       if (!this.sessionId) return;
 
@@ -814,6 +814,7 @@ fixImageSources();
       const url = "/api/perf/session-stop/";
 
       try {
+        // sendBeacon si dispo ; sinon fetch keepalive
         let sent = false;
         if (navigator.sendBeacon) {
           const blob = new Blob([payload], { type: "application/json" });
@@ -822,13 +823,16 @@ fixImageSources();
         if (!sent) {
           await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRFToken": this.csrftoken },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": this.csrftoken,
+            },
             body: payload,
             keepalive: true,
           });
         }
       } catch (err) {
-        console.warn("Erreur lors de l'arrêt de session:", err);
+        console.warn("Erreur arrêt session:", err);
       } finally {
         sessionStorage.removeItem("perf_session_id");
         this.sessionId = null;
@@ -838,59 +842,78 @@ fixImageSources();
 
     // ----- Track -----
     async track(action, payload) {
+      // ⚠️ déclencheur : le premier track démarre la session si elle n’existe pas
       await this.startIfNeeded();
       if (!this.sessionId) return;
+
       const body = {
         session_id: this.sessionId,
         action,
         section: this.activeSection,
         ...(payload || {}),
       };
+
       fetch("/api/perf/track/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRFToken": this.csrftoken },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": this.csrftoken,
+        },
         body: JSON.stringify(body),
       }).catch(() => {});
     },
   };
 
-  // --- Événements (identiques à ta version) ---
-  document.body.addEventListener("click", (e) => {
-    const btn = e.target.closest(".nav-button[data-section]");
-    if (btn) {
+  // ----- Événements déclencheurs (ne STOP pas) -----
+
+  // Clic sur une catégorie (onglet UI) -> ne ferme pas, sert juste de déclencheur possible
+  document.body.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest(".nav-button[data-section]");
+      if (!btn) return;
       PERF.activeSection = btn.dataset.section;
-      PERF.startIfNeeded();
+      // déclencheur de session si première interaction
       PERF.track("tab", { section: btn.dataset.section });
-    }
-  }, true);
+    },
+    true
+  );
 
-  document.body.addEventListener("click", (e) => {
-    const bub = e.target.closest(".bubble[data-color-id]");
-    if (!bub) return;
-    PERF.startIfNeeded();
-    PERF.track("bubble", { color_id: parseInt(bub.dataset.colorId) });
-  }, true);
+  // Clic sur une bulle
+  document.body.addEventListener(
+    "click",
+    (e) => {
+      const bub = e.target.closest(".bubble[data-color-id]");
+      if (!bub) return;
+      PERF.track("bubble", { color_id: parseInt(bub.dataset.colorId) });
+    },
+    true
+  );
 
-  document.body.addEventListener("click", (e) => {
-    const img = e.target.closest(".carousel-image[data-color-id]");
-    if (!img) return;
-    const cid = img.dataset.colorId ? parseInt(img.dataset.colorId) : null;
-    PERF.startIfNeeded();
-    PERF.track("image", { color_id: cid });
-  }, true);
+  // Clic sur une image du carrousel
+  document.body.addEventListener(
+    "click",
+    (e) => {
+      const img = e.target.closest(".carousel-image[data-color-id]");
+      if (!img) return;
+      const cid = img.dataset.colorId ? parseInt(img.dataset.colorId) : null;
+      PERF.track("image", { color_id: cid });
+    },
+    true
+  );
 
+  // Reset / clic logo → FIN EXPLICITE (seule autre manière d’arrêter)
   const stopSelectors = [".logo-container", "#resetBtn"];
-  document.body.addEventListener("click", (e) => {
-    if (stopSelectors.some((sel) => e.target.closest(sel))) {
-      PERF.stop({ reason: "user_reset" });
-    }
-  }, true);
+  document.body.addEventListener(
+    "click",
+    (e) => {
+      if (stopSelectors.some((sel) => e.target.closest(sel))) {
+        PERF.stop({ reason: "user_reset" });
+      }
+    },
+    true
+  );
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") PERF.stop({ reason: "visibility_hidden" });
-  });
-  window.addEventListener("pagehide", () => PERF.stop({ reason: "pagehide" }));
-  window.addEventListener("unload", () => PERF.stop({ reason: "unload" }), { once: true });
 
   window.PERF = PERF;
 })();
