@@ -738,89 +738,118 @@ function checkImageExists(url) {
 
 fixImageSources();
 });
-
 // ============= Performance tracking =============
 (function(){
   const PERF = {
     sessionId: null,
     activeSection: "facades",
+
+    // Récupère le CSRF token depuis le cookie
     get csrftoken(){
       const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
       return m ? m[2] : "";
     },
+
+    // Démarre une session si besoin
     async startIfNeeded(){
       if (this.sessionId) return;
       const clientId = localStorage.getItem("client_id") || (Math.random().toString(36).slice(2));
       localStorage.setItem("client_id", clientId);
+
       const r = await fetch("/api/perf/session-start/", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
+        headers: {
+          "Content-Type":"application/json",
+          "X-CSRFToken": this.csrftoken
+        },
         body: JSON.stringify({client_id: clientId})
       });
+
+      if (!r.ok) {
+        console.error("Erreur lors du démarrage de session:", r.status);
+        return;
+      }
+
       const j = await r.json();
       this.sessionId = j.session_id;
     },
+
+    // Arrête la session
     async stop(opts={}){
       if(!this.sessionId) return;
       try{
         await fetch("/api/perf/session-stop/", {
           method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({session_id: this.sessionId})
+          headers: {
+            "Content-Type":"application/json",
+            "X-CSRFToken": this.csrftoken
+          },
+          body: JSON.stringify({session_id: this.sessionId, ...opts})
         });
+      } catch(err){
+        console.warn("Erreur lors de l'arrêt de session:", err);
       } finally {
         this.sessionId = null;
       }
     },
+
+    // Enregistre une action
     async track(action, payload){
       await this.startIfNeeded();
+      if (!this.sessionId) return;
       const body = Object.assign({session_id: this.sessionId, action, section: this.activeSection}, payload||{});
-      // fire and forget
+
+      // Fire and forget
       fetch("/api/perf/track/", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
+        headers: {
+          "Content-Type":"application/json",
+          "X-CSRFToken": this.csrftoken
+        },
         body: JSON.stringify(body)
       }).catch(()=>{});
     }
   };
 
-  // section active (boutons du header)
+  // --- Gestion des événements ---
+
+  // clic sur un bouton du header (onglet)
   document.body.addEventListener("click", (e) => {
-  const btn = e.target.closest('.nav-button[data-section]');
-  if (btn) {
-    // Met à jour la section active
-    PERF.activeSection = btn.dataset.section;
-
-    // Démarre la session si ce n’est pas déjà fait
-    PERF.startIfNeeded();
-    PERF.track("tab", { section: btn.dataset.section });
-  }
-}, true);
-
+    const btn = e.target.closest('.nav-button[data-section]');
+    if (btn) {
+      PERF.activeSection = btn.dataset.section;
+      PERF.startIfNeeded();
+      PERF.track("tab", { section: btn.dataset.section });
+    }
+  }, true);
 
   // clic sur une bulle couleur
   document.body.addEventListener("click", (e)=>{
     const bub = e.target.closest('.bubble[data-color-id]');
     if(!bub) return;
+    PERF.startIfNeeded();
     PERF.track("bubble", {color_id: parseInt(bub.dataset.colorId)});
   }, true);
 
-  // clic sur une image du carrousel (si balisage différent)
+  // clic sur une image du carrousel
   document.body.addEventListener("click", (e)=>{
     const img = e.target.closest('.carousel-image[data-color-id]');
     if(!img) return;
     const cid = img.dataset.colorId ? parseInt(img.dataset.colorId) : null;
+    PERF.startIfNeeded();
     PERF.track("image", {color_id: cid});
   }, true);
 
   // retour "Home" = fin de session
-  // (logo, bouton reset inactivité, ou toute action qui ramène à l’état initial)
   const stopSelectors = [".logo-container", "#resetBtn"];
   document.body.addEventListener("click", (e)=>{
     if (stopSelectors.some(sel => e.target.closest(sel))) {
       PERF.stop();
     }
   }, true);
+
+
+
 
   // sécurité : si on ferme l’onglet
   window.addEventListener("beforeunload", ()=>{ PERF.stop(); });
