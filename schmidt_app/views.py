@@ -794,17 +794,23 @@ def perf_stats(request):
       "sections": { ... }
     }
     """
-    sessions = list(UsageSession.objects.exclude(ended_at__isnull=True))
+    # 1) Prendre TOUTES les sessions (terminées ou en cours)
+    sessions = list(UsageSession.objects.all())
     sessions_count = len(sessions)
 
+    # 2) La propriété duration_seconds gère déjà le cas en cours (effective_end = now)
     total_duration = sum(s.duration_seconds for s in sessions)
     avg_duration = int(total_duration / sessions_count) if sessions_count else 0
 
+    # 3) Stats par section (clics cumulés sur les Color)
     out = {}
     for sec_value, _sec_label in Section.choices:
         elements = Color.objects.filter(group__section=sec_value).count()
-        clicks = (Color.objects.filter(group__section=sec_value)
-                  .aggregate(n=Sum("clicks"))["n"] or 0)
+        clicks = (
+            Color.objects
+                 .filter(group__section=sec_value)
+                 .aggregate(n=Sum("clicks"))["n"] or 0
+        )
         out[sec_value] = {"elements": elements, "clicks": clicks}
 
     return JsonResponse({
@@ -813,8 +819,6 @@ def perf_stats(request):
         "avg_duration_seconds": avg_duration,
         "sections": out,
     })
-
-
 @require_GET
 def perf_breakdown(request, section: str):
     """

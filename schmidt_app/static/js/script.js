@@ -788,36 +788,44 @@ fixImageSources();
     },
 
     // Arrête la session (en soustrayant l'inactivité si présente)
-    async stop(opts={}){
-      if(!this.sessionId) return;
+    async stop(opts = {}) {
+  if (!this.sessionId) return;
 
-      // Calcule les champs d'ajustement
-      const now = Date.now();
-      const effectiveEnd = this._getEffectiveEndTs(); // exclut l'inactivité
-      const subtractIdleMs = this._idleStartTs ? (now - this._idleStartTs) : 0;
+  const hasIdle = !!this._idleStartTs;
+  // Si idle, la fin effective = début d'inactivité ; sinon = maintenant
+  const effectiveEnd = hasIdle ? this._idleStartTs : Date.now();
 
-      try{
-        await fetch("/api/perf/session-stop/", {
-          method: "POST",
-          headers: {
-            "Content-Type":"application/json",
-            "X-CSRFToken": this.csrftoken
-          },
-          body: JSON.stringify({
-            session_id: this.sessionId,
-            ended_at_client_ts: effectiveEnd,
-            ended_at_client_iso: new Date(effectiveEnd).toISOString(),
-            subtract_idle_ms: subtractIdleMs,
-            ...opts
-          })
-        });
-      } catch(err){
-        console.warn("Erreur lors de l'arrêt de session:", err);
-      } finally {
-        this.sessionId = null;
-        this._idleStartTs = null;
-      }
-    },
+  // Payload sans double retrait
+  const payload = {
+    session_id: this.sessionId,
+    ...(hasIdle
+      ? {
+          ended_at_client_ts: effectiveEnd,
+          ended_at_client_iso: new Date(effectiveEnd).toISOString(),
+        }
+      : {
+          // pas d'idle détecté → on laisse le backend mettre ended_at=now
+          // (on n’envoie pas subtract_idle_ms)
+        }),
+    ...opts,
+  };
+
+  try {
+    await fetch("/api/perf/session-stop/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": this.csrftoken,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn("Erreur lors de l'arrêt de session:", err);
+  } finally {
+    this.sessionId = null;
+    this._idleStartTs = null;
+  }
+},
 
     // Enregistre une action
     async track(action, payload){
