@@ -731,7 +731,6 @@ fixImageSources();
 });
 // ============= Performance tracking =============
 (function () {
-  // Empêche double installation (hot reload, script inclus deux fois…)
   if (window.__PERF_INSTALLED__) return;
   window.__PERF_INSTALLED__ = true;
 
@@ -739,8 +738,6 @@ fixImageSources();
     sessionId: null,
     activeSection: "facades",
     _idleStartTs: null,
-
-    // anti-race pour le démarrage
     _startInFlight: null,
 
     // ----- Inactivité (pilotée par ta pop) -----
@@ -766,7 +763,10 @@ fixImageSources();
       if (this.sessionId) return;
 
       // éviter doublons pendant une rafale de clics
-      if (this._startInFlight) { await this._startInFlight; return; }
+      if (this._startInFlight) {
+        await this._startInFlight;
+        return;
+      }
 
       this._startInFlight = (async () => {
         const clientId =
@@ -782,7 +782,10 @@ fixImageSources();
             },
             body: JSON.stringify({ client_id: clientId }),
           });
-          if (!r.ok) { console.error("Erreur start session:", r.status); return; }
+          if (!r.ok) {
+            console.error("Erreur start session:", r.status);
+            return;
+          }
           const j = await r.json();
           this.sessionId = j.session_id || null;
           if (this.sessionId) sessionStorage.setItem("perf_session_id", this.sessionId);
@@ -791,11 +794,14 @@ fixImageSources();
         }
       })();
 
-      try { await this._startInFlight; }
-      finally { this._startInFlight = null; }
+      try {
+        await this._startInFlight;
+      } finally {
+        this._startInFlight = null;
+      }
     },
 
-    // ----- Stop : appelé UNIQUEMENT par la pop d’inactivité ou reset/logo -----
+    // ----- Stop : pop d’inactivité, reset/logo, OU filets de sortie -----
     async stop(opts = {}) {
       if (!this.sessionId) return;
 
@@ -804,10 +810,12 @@ fixImageSources();
 
       const payloadObj = {
         session_id: this.sessionId,
-        ...(hasIdle ? {
-          ended_at_client_ts: effectiveEnd,
-          ended_at_client_iso: new Date(effectiveEnd).toISOString(),
-        } : {}),
+        ...(hasIdle
+          ? {
+              ended_at_client_ts: effectiveEnd,
+              ended_at_client_iso: new Date(effectiveEnd).toISOString(),
+            }
+          : {}),
         ...opts,
       };
       const payload = JSON.stringify(payloadObj);
@@ -842,7 +850,6 @@ fixImageSources();
 
     // ----- Track -----
     async track(action, payload) {
-      // ⚠️ déclencheur : le premier track démarre la session si elle n’existe pas
       await this.startIfNeeded();
       if (!this.sessionId) return;
 
@@ -866,14 +873,13 @@ fixImageSources();
 
   // ----- Événements déclencheurs (ne STOP pas) -----
 
-  // Clic sur une catégorie (onglet UI) -> ne ferme pas, sert juste de déclencheur possible
+  // Clic sur une catégorie (onglet UI) -> seulement du tracking
   document.body.addEventListener(
     "click",
     (e) => {
       const btn = e.target.closest(".nav-button[data-section]");
       if (!btn) return;
       PERF.activeSection = btn.dataset.section;
-      // déclencheur de session si première interaction
       PERF.track("tab", { section: btn.dataset.section });
     },
     true
@@ -902,7 +908,7 @@ fixImageSources();
     true
   );
 
-  // Reset / clic logo → FIN EXPLICITE (seule autre manière d’arrêter)
+  // Reset / clic logo
   const stopSelectors = [".logo-container", "#resetBtn"];
   document.body.addEventListener(
     "click",
@@ -914,6 +920,28 @@ fixImageSources();
     true
   );
 
+  // ----- Filets universels de sortie (fermeture / refresh / arrière-plan) -----
 
+  // Quand l’onglet passe en arrière-plan
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      PERF.stop({ reason: "visibility_hidden" });
+    }
+  });
+
+  window.addEventListener("pagehide", () => {
+    PERF.stop({ reason: "pagehide" });
+  });
+
+  // Filet supplémentaire
+  window.addEventListener(
+    "beforeunload",
+    () => {
+      PERF.stop({ reason: "beforeunload" });
+    },
+    { once: true }
+  );
+
+  // Expose pour debug
   window.PERF = PERF;
 })();
